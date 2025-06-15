@@ -1,0 +1,88 @@
+# 核心数据处理
+pandas
+numpy
+scipy
+
+# 技术分析
+tulipy
+pandas-ta
+
+# 数据库
+sqlalchemy
+psycopg2-binary
+clickhouse-driver
+alembic
+
+# 数据获取
+tushare
+requests
+beautifulsoup4
+selenium
+
+# 工作流调度 (已移除 Apache Airflow)
+# 注意: Airflow 已移除，待日后重新考虑工作流调度功能
+
+# 前端框架
+streamlit
+plotly
+dash
+
+# 机器学习
+scikit-learn
+lightgbm
+xgboost
+
+# NLP处理
+transformers
+torch
+jieba
+
+# 研究工具
+marimo
+jupyter
+ipykernel
+
+# 数据可视化
+matplotlib
+seaborn
+mplfinance
+
+# 工具库
+python-dotenv
+pydantic
+pydantic-settings
+loguru
+schedule
+redis
+
+# 开发工具
+pytest
+black
+flake8
+mypy
+
+# 部署相关
+gunicorn
+uvicorn
+fastapi
+
+# 邮件通知
+sendgrid
+
+# 时间处理
+pytz
+pendulum
+
+# 配置管理
+pyyaml
+toml
+
+# 数据验证
+cerberus
+marshmallow
+
+# 缓存
+diskcache
+
+# 并发处理
+celery
