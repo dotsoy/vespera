@@ -479,9 +479,18 @@ def render_data_source_config():
         
         if st.button("🧪 测试 AllTick 连接"):
             if alltick_token:
-                with st.spinner("测试连接中..."):
-                    time.sleep(2)  # 模拟测试
-                    st.success("✅ AllTick 连接测试成功!")
+                try:
+                    from src.data_sources.alltick_client import AllTickClient
+                    with st.spinner("测试连接中..."):
+                        client = AllTickClient(token=alltick_token)
+                        # 尝试获取一个简单的响应来测试连接
+                        response = client.test_connection()
+                        if response:
+                            st.success("✅ AllTick 连接测试成功!")
+                        else:
+                            st.error("❌ AllTick 连接测试失败，请检查API Token。")
+                except Exception as e:
+                    st.error(f"❌ AllTick 连接测试失败: {e}")
             else:
                 st.error("❌ 请输入有效的API Token")
     
@@ -514,9 +523,18 @@ def render_data_source_config():
         
         if st.button("🧪 测试 Alpha Vantage 连接"):
             if av_token:
-                with st.spinner("测试连接中..."):
-                    time.sleep(2)  # 模拟测试
-                    st.success("✅ Alpha Vantage 连接测试成功!")
+                try:
+                    from src.data_sources.alpha_vantage_client import AlphaVantageClient
+                    with st.spinner("测试连接中..."):
+                        client = AlphaVantageClient(api_key=av_token)
+                        # 尝试获取一个简单的响应来测试连接
+                        response = client.test_connection()
+                        if response:
+                            st.success("✅ Alpha Vantage 连接测试成功!")
+                        else:
+                            st.error("❌ Alpha Vantage 连接测试失败，请检查API Key。")
+                except Exception as e:
+                    st.error(f"❌ Alpha Vantage 连接测试失败: {e}")
             else:
                 st.error("❌ 请输入有效的API Key")
     
