@@ -9,10 +9,12 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
 from clickhouse_driver import Client as ClickHouseClient
 import redis
-from loguru import logger
 from contextlib import contextmanager
 
 from config.settings import db_settings
+from src.utils.logger import get_logger
+
+logger = get_logger("database")
 
 
 class DatabaseManager:

@@ -40,7 +40,7 @@ def __(mo):
     ## 策略理念
     > "模拟主力资金操盘逻辑，在牛市背景下筛选由主力资金深度介入、且技术上处于最小阻力路径的股票"
     """)
-    return
+    return mo.output
 
 
 @app.cell
@@ -102,7 +102,7 @@ def __(capital_threshold, rs_threshold, s_class_threshold, technical_threshold, 
     
     > 只有同时满足前三个门槛的股票才能产生交易信号
     """)
-    return
+    return mo.output
 
 
 @app.cell
@@ -130,7 +130,7 @@ def __(end_date, initial_capital, max_holding_days, max_position, start_date, mo
     - 📊 **单股最大仓位**: {max_position.value:.0%}
     - ⏰ **最大持仓天数**: {max_holding_days.value} 天
     """)
-    return
+    return mo.output
 
 
 @app.cell
@@ -161,7 +161,7 @@ def __(run_backtest, mo):
     else:
         mo.md("👆 **点击上方按钮开始回测分析**")
     
-    return
+    return mo.output
 
 
 @app.cell
