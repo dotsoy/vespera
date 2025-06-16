@@ -8,6 +8,7 @@ from typing import Optional, List, Dict, Any, Union
 from datetime import datetime, date, timedelta
 import time
 import json
+import os
 from loguru import logger
 
 from .base_data_source import (
@@ -20,7 +21,7 @@ from .base_data_source import (
 class AllTickDataSource(BaseDataSource):
     """AllTick数据源实现"""
     
-    def __init__(self, token: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, token: Optional[str] = None, config: Optional[Dict[str, Any]] = None):
         default_config = {
             'rate_limit': 100,   # 每分钟100次请求 (根据AllTick限制调整)
             'priority': 2,       # 中等优先级
@@ -32,7 +33,10 @@ class AllTickDataSource(BaseDataSource):
             default_config.update(config)
             
         super().__init__("AllTick", DataSourceType.ALLTICK, default_config)
-        self.token = token
+        # 从环境变量或参数获取token
+        self.token = token or os.getenv('ALLTICK_TOKEN')
+        if not self.token:
+            raise ValueError("AllTick token未配置，请设置ALLTICK_TOKEN环境变量或传入token参数")
         self.base_url = "https://apis.alltick.co"
         self.session = requests.Session()
         

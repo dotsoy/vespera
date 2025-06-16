@@ -7,6 +7,7 @@ from typing import Optional, List, Dict, Any, Union
 from datetime import datetime, date
 import time
 import json
+import os
 from loguru import logger
 
 from .base_data_source import (
@@ -19,7 +20,7 @@ from .base_data_source import (
 class AlphaVantageDataSource(BaseDataSource):
     """Alpha Vantage数据源实现"""
     
-    def __init__(self, api_key: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, api_key: Optional[str] = None, config: Optional[Dict[str, Any]] = None):
         default_config = {
             'rate_limit': 5,     # 免费版每分钟5次请求
             'priority': 3,       # 较低优先级
@@ -30,7 +31,10 @@ class AlphaVantageDataSource(BaseDataSource):
             default_config.update(config)
             
         super().__init__("Alpha Vantage", DataSourceType.ALPHA_VANTAGE, default_config)
-        self.api_key = api_key
+        # 从环境变量或参数获取API key
+        self.api_key = api_key or os.getenv('ALPHA_VANTAGE_API_KEY')
+        if not self.api_key:
+            raise ValueError("Alpha Vantage API key未配置，请设置ALPHA_VANTAGE_API_KEY环境变量或传入api_key参数")
         self.base_url = "https://www.alphavantage.co/query"
         
     def initialize(self) -> bool:

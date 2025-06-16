@@ -16,6 +16,8 @@ sys.path.insert(0, str(project_root))
 
 from src.utils.logger import get_logger
 
+logger = get_logger("data_management")
+
 # 数据库连接
 try:
     from src.utils.database import get_db_manager
@@ -33,19 +35,18 @@ except ImportError as e:
     TUSHARE_AVAILABLE = False
 
 try:
-    from src.data_sources.alltick_data_source import AllTickDataSource
+    from src.data_sources.alltick_client import AllTickClient
     ALLTICK_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    logger.warning(f"AllTick客户端导入失败: {e}")
     ALLTICK_AVAILABLE = False
 
 try:
-    from src.data_sources.alpha_vantage_data_source import AlphaVantageDataSource
+    from src.data_sources.alpha_vantage_client import AlphaVantageClient
     ALPHA_VANTAGE_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    logger.warning(f"Alpha Vantage客户端导入失败: {e}")
     ALPHA_VANTAGE_AVAILABLE = False
-
-logger = get_logger("data_management")
-
 
 def execute_real_data_update(data_source, update_type, target_date, update_scope, selected_stocks):
     """执行真实的数据更新"""
@@ -120,16 +121,17 @@ def execute_real_data_update(data_source, update_type, target_date, update_scope
                 return
 
             try:
-                from src.data_sources.alltick_data_source import AllTickDataSource
-                client = AllTickDataSource()
+                client = AllTickClient()
                 logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ AllTick客户端初始化成功")
 
                 # 测试连接
-                # test_result = client.test_connection()
-                # if not test_result:
-                #     logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AllTick连接测试失败")
-                #     st.error("❌ AllTick数据源失败：连接测试失败，请检查API Token")
-                #     return
+                test_result = client.test_connection()
+                if not test_result:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AllTick连接测试失败")
+                    st.error("❌ AllTick数据源失败：连接测试失败，请检查API Token")
+                    return
+                else:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ AllTick连接测试成功")
 
             except Exception as e:
                 error_msg = str(e)
@@ -148,16 +150,17 @@ def execute_real_data_update(data_source, update_type, target_date, update_scope
                 return
 
             try:
-                from src.data_sources.alpha_vantage_data_source import AlphaVantageDataSource
-                client = AlphaVantageDataSource()
+                client = AlphaVantageClient()
                 logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ Alpha Vantage客户端初始化成功")
 
                 # 测试连接
-                # test_result = client.test_connection()
-                # if not test_result:
-                #     logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Alpha Vantage连接测试失败")
-                #     st.error("❌ Alpha Vantage数据源失败：连接测试失败，请检查API Key")
-                #     return
+                test_result = client.test_connection()
+                if not test_result:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Alpha Vantage连接测试失败")
+                    st.error("❌ Alpha Vantage数据源失败：连接测试失败，请检查API Key")
+                    return
+                else:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ Alpha Vantage连接测试成功")
 
             except Exception as e:
                 error_msg = str(e)
@@ -190,15 +193,35 @@ def execute_real_data_update(data_source, update_type, target_date, update_scope
 
             elif data_source == "AllTick":
                 # AllTick获取股票基础信息
-                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AllTick暂不支持股票基础信息获取")
-                st.error("❌ AllTick数据源暂不支持股票基础信息获取，请使用Tushare")
-                return
+                try:
+                    stock_basic_df = client.get_stock_list('cn')  # 获取中国市场股票列表
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 从AllTick获取到 {len(stock_basic_df)} 只股票基础信息")
+                except Exception as e:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AllTick获取股票基础信息失败: {e}")
+                    st.error(f"❌ AllTick获取股票基础信息失败: {e}")
+                    return
 
             elif data_source == "Alpha Vantage":
-                # Alpha Vantage主要用于美股，不适合A股基础信息
-                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Alpha Vantage不支持A股基础信息获取")
-                st.error("❌ Alpha Vantage主要用于美股数据，不支持A股基础信息获取，请使用Tushare")
-                return
+                # Alpha Vantage主要用于美股
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ Alpha Vantage主要用于美股数据")
+                # 获取常见美股列表作为示例
+                us_stocks = client.get_us_stock_list()
+                stock_basic_data = []
+                for symbol in us_stocks[:5]:  # 只获取前5只作为示例
+                    try:
+                        basic_info = client.get_stock_basic(symbol)
+                        if not basic_info.empty:
+                            stock_basic_data.append(basic_info)
+                    except Exception as e:
+                        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ 获取{symbol}基础信息失败: {e}")
+
+                if stock_basic_data:
+                    stock_basic_df = pd.concat(stock_basic_data, ignore_index=True)
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 从Alpha Vantage获取到 {len(stock_basic_df)} 只美股基础信息")
+                else:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Alpha Vantage未获取到股票基础信息")
+                    st.error("❌ Alpha Vantage未获取到股票基础信息，可能是API限制")
+                    return
 
             if stock_basic_df is None or stock_basic_df.empty:
                 logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 未获取到股票基础信息")
