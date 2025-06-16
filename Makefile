@@ -56,7 +56,9 @@ logs:
 
 # 启动仪表盘
 dashboard:
-	@echo "启动 Streamlit 仪表盘..."
+	@echo "🚀 启动 Streamlit 仪表盘..."
+	@echo "📍 访问地址: http://localhost:8501"
+	@echo "🔬 Marimo研究室已集成到侧边栏"
 	streamlit run dashboard/app.py
 
 # 注意: Airflow 已移除

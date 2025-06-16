@@ -29,6 +29,14 @@ st.set_page_config(
 logger = get_logger("dashboard")
 db_manager = get_db_manager()
 
+# 导入Marimo研究室组件
+try:
+    from dashboard.components.marimo_lab import render_marimo_lab_sidebar, render_marimo_lab_main
+    MARIMO_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Marimo研究室组件导入失败: {e}")
+    MARIMO_AVAILABLE = False
+
 
 @st.cache_data(ttl=300)  # 缓存5分钟
 def load_trading_signals(date_filter: str = None):
@@ -329,7 +337,15 @@ def main():
         if st.button("🔄 刷新数据"):
             st.cache_data.clear()
             st.rerun()
+
+        # Marimo研究室
+        if MARIMO_AVAILABLE:
+            render_marimo_lab_sidebar()
     
+    # Marimo研究室主面板
+    if MARIMO_AVAILABLE:
+        render_marimo_lab_main()
+
     # 主要内容区域
     tab1, tab2, tab3, tab4 = st.tabs(["🎯 交易信号", "📊 市场概览", "📈 分析详情", "⚙️ 系统状态"])
 
@@ -522,7 +538,8 @@ def main():
                     if not quotes_df.empty:
                         fig = create_candlestick_chart(
                             quotes_df,
-                            f"{stock_signal['name']} K线图"
+                            f"{stock_signal['name']} K线图",
+                            signal_row=stock_signal
                         )
                         st.plotly_chart(fig, use_container_width=True)
                     else:
