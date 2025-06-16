@@ -171,12 +171,6 @@ def execute_real_data_update(data_source, update_type, target_date, update_scope
                     logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Alpha Vantage连接失败: {error_msg}")
                     st.error(f"❌ Alpha Vantage数据源失败：连接错误 - {error_msg}")
                 return
-        else:
-            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 不支持的数据源: {data_source}")
-            st.error(f"❌ 不支持的数据源: {data_source}")
-            return
-
-        log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
 
         # 2. 更新股票基础信息
         total_progress.progress(10)

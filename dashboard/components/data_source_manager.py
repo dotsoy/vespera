@@ -56,13 +56,13 @@ except ImportError:
         'features': ['股票数据', '外汇数据', '加密货币', '技术指标']
     }
 
-# 模拟数据源
-DATA_SOURCES['模拟数据'] = {
-    'client': None,
-    'available': True,
-    'description': '用于测试和演示的模拟数据',
-    'features': ['历史数据', '技术指标', '无限制访问', '快速响应']
-}
+# 不再使用模拟数据源
+# DATA_SOURCES['模拟数据'] = {
+#     'client': None,
+#     'available': True,
+#     'description': '用于测试和演示的模拟数据',
+#     'features': ['历史数据', '技术指标', '无限制访问', '快速响应']
+# }
 
 
 def render_data_source_overview():
@@ -185,36 +185,62 @@ def execute_data_fetch(source_name, data_types, stock_scope, date_range,
         st.subheader("📋 拉取日志")
         log_area = st.empty()
     
-    # 模拟数据拉取过程
     logs = []
     
     try:
         # 初始化
         logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 初始化 {source_name} 连接...")
         log_area.text_area("", value="\n".join(logs), height=200, disabled=True)
-        time.sleep(1)
+        
+        # 获取数据源客户端
+        client = None
+        if source_name in DATA_SOURCES and DATA_SOURCES[source_name]['available'] and DATA_SOURCES[source_name]['client']:
+            try:
+                client = DATA_SOURCES[source_name]['client']()
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ {source_name} 客户端初始化成功")
+            except Exception as e:
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ {source_name} 客户端初始化失败: {e}")
+                with status_container:
+                    st.error(f"❌ {source_name} 客户端初始化失败: {e}")
+                return
+        else:
+            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ {source_name} 不可用")
+            with status_container:
+                st.error(f"❌ {source_name} 数据源不可用")
+            return
         
         # 获取股票列表
         total_progress.progress(10)
         total_status.text("获取股票列表...")
         logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 获取股票列表: {stock_scope}")
         log_area.text_area("", value="\n".join(logs), height=200, disabled=True)
-        time.sleep(1)
         
-        # 模拟股票数量
+        stock_list = []
         if stock_scope == "全部A股":
-            stock_count = 5000
+            stock_list = client.get_stock_list('cn') if hasattr(client, 'get_stock_list') else []
         elif stock_scope == "沪深300":
-            stock_count = 300
+            stock_list = client.get_stock_list('hs300') if hasattr(client, 'get_stock_list') else []
         elif stock_scope == "中证500":
-            stock_count = 500
+            stock_list = client.get_stock_list('zz500') if hasattr(client, 'get_stock_list') else []
+        elif stock_scope == "创业板50":
+            stock_list = client.get_stock_list('cyb50') if hasattr(client, 'get_stock_list') else []
+        elif stock_scope == "科创板50":
+            stock_list = client.get_stock_list('kcb50') if hasattr(client, 'get_stock_list') else []
         else:
-            stock_count = 50
+            stock_list = []
+        
+        stock_count = len(stock_list)
+        if stock_count == 0:
+            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 未获取到股票列表")
+            with status_container:
+                st.error(f"❌ 未获取到股票列表")
+            return
         
         logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 找到 {stock_count} 只股票")
         log_area.text_area("", value="\n".join(logs), height=200, disabled=True)
         
         # 按数据类型拉取
+        total_records = 0
         for i, data_type in enumerate(data_types):
             total_progress.progress(20 + (i * 60 // len(data_types)))
             total_status.text(f"拉取 {data_type} 数据...")
@@ -222,30 +248,99 @@ def execute_data_fetch(source_name, data_types, stock_scope, date_range,
             logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 开始拉取 {data_type}")
             log_area.text_area("", value="\n".join(logs), height=200, disabled=True)
             
-            # 模拟按股票拉取
-            for j in range(min(stock_count, 100)):  # 限制演示数量
-                detail_progress.progress((j + 1) / min(stock_count, 100))
-                detail_status.text(f"处理股票 {j+1}/{min(stock_count, 100)}")
-                
-                if j % 20 == 0:  # 每20只股票记录一次日志
-                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 已处理 {j+1} 只股票")
-                    log_area.text_area("", value="\n".join(logs), height=200, disabled=True)
-                
-                time.sleep(0.05)  # 模拟网络延迟
+            if data_type == "股票基础信息":
+                stock_basic_df = client.get_stock_basic() if hasattr(client, 'get_stock_basic') else pd.DataFrame()
+                if not stock_basic_df.empty:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 获取到 {len(stock_basic_df)} 只股票基础信息")
+                    # 保存到数据库
+                    try:
+                        from src.utils.database import get_db_manager
+                        db_manager = get_db_manager()
+                        insert_count = 0
+                        for _, row in stock_basic_df.iterrows():
+                            insert_sql = """
+                            INSERT INTO stock_basic (ts_code, symbol, name, area, industry, market, list_date, is_hs)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (ts_code) DO UPDATE SET
+                            name = EXCLUDED.name,
+                            area = EXCLUDED.area,
+                            industry = EXCLUDED.industry,
+                            market = EXCLUDED.market,
+                            list_date = EXCLUDED.list_date,
+                            is_hs = EXCLUDED.is_hs
+                            """
+                            db_manager.execute_postgres_query(insert_sql, params=(
+                                row['ts_code'], row['symbol'], row['name'], row['area'],
+                                row['industry'], row['market'], row['list_date'], row['is_hs']
+                            ))
+                            insert_count += 1
+                        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ 成功保存 {insert_count} 只股票基础信息到数据库")
+                        total_records += insert_count
+                    except Exception as e:
+                        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 数据库保存失败: {e}")
+                else:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ 未获取到股票基础信息")
+            
+            elif data_type == "日线行情":
+                if len(date_range) == 2:
+                    start_date = date_range[0].strftime('%Y%m%d')
+                    end_date = date_range[1].strftime('%Y%m%d')
+                    for j, stock in enumerate(stock_list[:100]):  # 限制演示数量
+                        detail_progress.progress((j + 1) / min(stock_count, 100))
+                        detail_status.text(f"处理股票 {j+1}/{min(stock_count, 100)}")
+                        
+                        quotes_df = client.get_daily_quotes(stock, start_date, end_date) if hasattr(client, 'get_daily_quotes') else pd.DataFrame()
+                        if not quotes_df.empty:
+                            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 获取到 {stock} 的 {len(quotes_df)} 条日线行情数据")
+                            # 保存到数据库
+                            try:
+                                from src.utils.database import get_db_manager
+                                db_manager = get_db_manager()
+                                insert_count = 0
+                                for _, row in quotes_df.iterrows():
+                                    insert_sql = """
+                                    INSERT INTO stock_daily_quotes
+                                    (ts_code, trade_date, open_price, high_price, low_price, close_price,
+                                     pre_close, change_amount, pct_chg, vol, amount)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    ON CONFLICT (ts_code, trade_date) DO UPDATE SET
+                                    open_price = EXCLUDED.open_price,
+                                    high_price = EXCLUDED.high_price,
+                                    low_price = EXCLUDED.low_price,
+                                    close_price = EXCLUDED.close_price,
+                                    pre_close = EXCLUDED.pre_close,
+                                    change_amount = EXCLUDED.change_amount,
+                                    pct_chg = EXCLUDED.pct_chg,
+                                    vol = EXCLUDED.vol,
+                                    amount = EXCLUDED.amount
+                                    """
+                                    db_manager.execute_postgres_query(insert_sql, params=(
+                                        row['ts_code'], row['trade_date'], row['open_price'], row['high_price'],
+                                        row['low_price'], row['close_price'], row['pre_close'], row['change_amount'],
+                                        row['pct_chg'], row['vol'], row['amount']
+                                    ))
+                                    insert_count += 1
+                                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ 成功保存 {stock} 的 {insert_count} 条日线行情数据到数据库")
+                                total_records += insert_count
+                            except Exception as e:
+                                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 数据库保存失败: {e}")
+                        if j % 20 == 0:  # 每20只股票记录一次日志
+                            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 已处理 {j+1} 只股票")
+                            log_area.text_area("", value="\n".join(logs), height=200, disabled=True)
+            
+            # 其他数据类型可以类似处理
         
         # 数据验证
         total_progress.progress(85)
         total_status.text("验证数据完整性...")
         logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 验证数据完整性...")
         log_area.text_area("", value="\n".join(logs), height=200, disabled=True)
-        time.sleep(1)
         
         # 保存到数据库
         total_progress.progress(95)
         total_status.text("保存到数据库...")
         logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 保存到数据库...")
         log_area.text_area("", value="\n".join(logs), height=200, disabled=True)
-        time.sleep(1)
         
         # 完成
         total_progress.progress(100)
@@ -253,6 +348,7 @@ def execute_data_fetch(source_name, data_types, stock_scope, date_range,
         logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ 数据拉取完成!")
         logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 总计处理 {stock_count} 只股票")
         logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 数据类型: {', '.join(data_types)}")
+        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 总计保存 {total_records} 条记录")
         log_area.text_area("", value="\n".join(logs), height=200, disabled=True)
         
         with status_container:
@@ -284,14 +380,14 @@ def render_fetch_history():
     # 生成模拟历史数据
     dates = pd.date_range(end=datetime.now(), periods=30, freq='D')
     
-    # 模拟不同数据源的拉取记录
+    # 不同数据源的拉取记录
     history_data = []
     for date in dates:
-        for source in ['AllTick', 'Alpha Vantage', '模拟数据']:
-            if DATA_SOURCES[source]['available']:
+        for source in ['AllTick', 'Alpha Vantage']:
+            if source in DATA_SOURCES and DATA_SOURCES[source]['available']:
                 # 模拟成功率和拉取量
-                success_rate = 0.95 if source != '模拟数据' else 1.0
-                records = np.random.randint(1000, 5000) if source != '模拟数据' else 1500
+                success_rate = 0.95
+                records = np.random.randint(1000, 5000)
                 
                 history_data.append({
                     'date': date,
@@ -319,14 +415,20 @@ def render_fetch_history():
         # 成功率统计
         success_stats = df.groupby('source')['success_rate'].mean().reset_index()
         
-        fig = px.bar(
-            success_stats, x='source', y='success_rate',
-            title='数据源成功率统计',
-            labels={'success_rate': '成功率', 'source': '数据源'}
-        )
-        fig.update_layout(template="plotly_white", height=400)
-        fig.update_yaxis(range=[0, 1])
-        st.plotly_chart(fig, use_container_width=True)
+        if not success_stats.empty:
+            try:
+                fig = px.bar(
+                    success_stats, x='source', y='success_rate',
+                    title='数据源成功率统计',
+                    labels={'success_rate': '成功率', 'source': '数据源'}
+                )
+                fig.update_layout(template="plotly_white", height=400)
+                fig.update_yaxis(range=[0, 1])
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"绘制成功率统计图表时出错: {e}")
+        else:
+            st.warning("暂无成功率数据可显示。")
     
     # 详细统计表
     st.subheader("📊 详细统计")
