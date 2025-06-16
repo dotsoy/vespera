@@ -16,9 +16,23 @@ sys.path.insert(0, str(project_root))
 
 from src.utils.logger import get_logger
 
-# 暂时注释掉有问题的导入
-# from src.utils.database import get_db_manager
-# from src.strategies.qiming_star import QimingStarStrategy
+# 数据库连接
+try:
+    from src.utils.database import get_db_manager
+    DB_AVAILABLE = True
+except ImportError as e:
+    logger = get_logger("system_status")
+    logger.warning(f"数据库模块导入失败: {e}")
+    DB_AVAILABLE = False
+
+# 策略模块
+try:
+    from src.strategies.qiming_star import QimingStarStrategy
+    STRATEGY_AVAILABLE = True
+except ImportError as e:
+    logger = get_logger("system_status")
+    logger.warning(f"策略模块导入失败: {e}")
+    STRATEGY_AVAILABLE = False
 
 logger = get_logger("system_status")
 
@@ -60,10 +74,47 @@ def get_system_info():
 def get_database_status():
     """获取数据库状态"""
     try:
-        # 暂时使用模拟数据库状态
-        # TODO: 修复数据库连接后替换为真实状态检查
+        # 优先尝试获取真实数据库状态
+        if DB_AVAILABLE:
+            try:
+                db_manager = get_db_manager()
 
-        # 模拟连接状态
+                # 测试数据库连接
+                connection_status = db_manager.test_connections()
+
+                # 获取数据库表信息
+                table_info = {}
+                if connection_status.get('postgres', False):
+                    try:
+                        # 获取主要表的记录数
+                        tables = [
+                            'stock_basic', 'stock_daily_quotes', 'trading_signals',
+                            'technical_daily_profiles', 'capital_flow_daily'
+                        ]
+
+                        for table in tables:
+                            try:
+                                result = db_manager.execute_postgres_query(
+                                    f"SELECT COUNT(*) as count FROM {table}"
+                                )
+                                table_info[table] = result['count'].iloc[0] if not result.empty else 0
+                            except Exception:
+                                table_info[table] = 0
+
+                    except Exception as e:
+                        logger.error(f"获取表信息失败: {e}")
+
+                logger.info(f"数据库状态检查完成: {connection_status}")
+                return {
+                    "connections": connection_status,
+                    "table_info": table_info
+                }
+
+            except Exception as e:
+                logger.error(f"数据库状态检查失败: {e}")
+
+        # 备选方案：使用模拟数据库状态
+        logger.info("使用模拟数据库状态")
         connection_status = {
             'postgres': False,  # 模拟连接失败
             'clickhouse': False,

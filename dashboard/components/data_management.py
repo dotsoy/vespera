@@ -16,22 +16,492 @@ sys.path.insert(0, str(project_root))
 
 from src.utils.logger import get_logger
 
-# 数据库和数据源客户端（暂时注释掉，因为模块不存在或有依赖问题）
-# from src.utils.database import get_db_manager
-# from src.data_sources.alltick_client import AllTickClient
-# from src.data_sources.alpha_vantage_client import AlphaVantageClient
+# 数据库连接
+try:
+    from src.utils.database import get_db_manager
+    DB_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"数据库模块导入失败: {e}")
+    DB_AVAILABLE = False
+
+# 数据源客户端
+try:
+    from src.data_sources.tushare_client import TushareClient
+    TUSHARE_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Tushare客户端导入失败: {e}")
+    TUSHARE_AVAILABLE = False
+
+try:
+    from src.data_sources.alltick_data_source import AllTickDataSource
+    ALLTICK_AVAILABLE = True
+except ImportError:
+    ALLTICK_AVAILABLE = False
+
+try:
+    from src.data_sources.alpha_vantage_data_source import AlphaVantageDataSource
+    ALPHA_VANTAGE_AVAILABLE = True
+except ImportError:
+    ALPHA_VANTAGE_AVAILABLE = False
 
 logger = get_logger("data_management")
+
+
+def execute_real_data_update(data_source, update_type, target_date, update_scope, selected_stocks):
+    """执行真实的数据更新"""
+
+    # 创建进度显示区域
+    progress_container = st.container()
+    log_container = st.container()
+
+    with progress_container:
+        st.info(f"🔄 正在从 {data_source} 更新数据...")
+
+        # 总进度条
+        total_progress = st.progress(0)
+        total_status = st.empty()
+
+        # 详细进度
+        detail_progress = st.progress(0)
+        detail_status = st.empty()
+
+    with log_container:
+        st.subheader("📋 更新日志")
+        log_area = st.empty()
+
+    logs = []
+
+    try:
+        # 1. 初始化数据源客户端
+        total_progress.progress(5)
+        total_status.text("初始化数据源连接...")
+        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 尝试连接 {data_source}...")
+        log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+
+        client = None
+
+        # 尝试不同的数据源
+        if data_source.startswith("Tushare"):
+            if not TUSHARE_AVAILABLE:
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Tushare模块未安装或导入失败")
+                st.error("❌ Tushare数据源不可用：模块未安装或导入失败")
+                return
+
+            try:
+                client = TushareClient()
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ Tushare客户端初始化成功")
+
+                # 测试API权限
+                test_df = client.get_stock_basic()
+                if test_df.empty:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Tushare API权限不足或无数据")
+                    st.error("❌ Tushare数据源失败：API权限不足，请检查Token权限或升级账户")
+                    return
+                else:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ Tushare API权限验证成功")
+
+            except Exception as e:
+                error_msg = str(e)
+                if "权限" in error_msg or "permission" in error_msg.lower():
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Tushare API权限不足: {error_msg}")
+                    st.error(f"❌ Tushare数据源失败：API权限不足 - {error_msg}")
+                elif "token" in error_msg.lower():
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Tushare Token配置错误: {error_msg}")
+                    st.error(f"❌ Tushare数据源失败：Token配置错误 - {error_msg}")
+                else:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Tushare连接失败: {error_msg}")
+                    st.error(f"❌ Tushare数据源失败：连接错误 - {error_msg}")
+                return
+
+        elif data_source == "AllTick":
+            if not ALLTICK_AVAILABLE:
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AllTick模块未安装或导入失败")
+                st.error("❌ AllTick数据源不可用：模块未安装或导入失败")
+                return
+
+            try:
+                from src.data_sources.alltick_data_source import AllTickDataSource
+                client = AllTickDataSource()
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ AllTick客户端初始化成功")
+
+                # 测试连接
+                # test_result = client.test_connection()
+                # if not test_result:
+                #     logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AllTick连接测试失败")
+                #     st.error("❌ AllTick数据源失败：连接测试失败，请检查API Token")
+                #     return
+
+            except Exception as e:
+                error_msg = str(e)
+                if "token" in error_msg.lower() or "key" in error_msg.lower():
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AllTick Token配置错误: {error_msg}")
+                    st.error(f"❌ AllTick数据源失败：Token配置错误 - {error_msg}")
+                else:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AllTick连接失败: {error_msg}")
+                    st.error(f"❌ AllTick数据源失败：连接错误 - {error_msg}")
+                return
+
+        elif data_source == "Alpha Vantage":
+            if not ALPHA_VANTAGE_AVAILABLE:
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Alpha Vantage模块未安装或导入失败")
+                st.error("❌ Alpha Vantage数据源不可用：模块未安装或导入失败")
+                return
+
+            try:
+                from src.data_sources.alpha_vantage_data_source import AlphaVantageDataSource
+                client = AlphaVantageDataSource()
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ Alpha Vantage客户端初始化成功")
+
+                # 测试连接
+                # test_result = client.test_connection()
+                # if not test_result:
+                #     logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Alpha Vantage连接测试失败")
+                #     st.error("❌ Alpha Vantage数据源失败：连接测试失败，请检查API Key")
+                #     return
+
+            except Exception as e:
+                error_msg = str(e)
+                if "api" in error_msg.lower() or "key" in error_msg.lower():
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Alpha Vantage API Key配置错误: {error_msg}")
+                    st.error(f"❌ Alpha Vantage数据源失败：API Key配置错误 - {error_msg}")
+                else:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Alpha Vantage连接失败: {error_msg}")
+                    st.error(f"❌ Alpha Vantage数据源失败：连接错误 - {error_msg}")
+                return
+        else:
+            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 不支持的数据源: {data_source}")
+            st.error(f"❌ 不支持的数据源: {data_source}")
+            return
+
+        log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+
+        # 2. 更新股票基础信息
+        total_progress.progress(10)
+        total_status.text("更新股票基础信息...")
+        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 开始更新股票基础信息...")
+        log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+
+        stock_basic_df = None
+        try:
+            if data_source.startswith("Tushare"):
+                # 使用Tushare获取股票基础信息
+                stock_basic_df = client.get_stock_basic()
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 从Tushare获取到 {len(stock_basic_df)} 只股票基础信息")
+
+            elif data_source == "AllTick":
+                # AllTick获取股票基础信息
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AllTick暂不支持股票基础信息获取")
+                st.error("❌ AllTick数据源暂不支持股票基础信息获取，请使用Tushare")
+                return
+
+            elif data_source == "Alpha Vantage":
+                # Alpha Vantage主要用于美股，不适合A股基础信息
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Alpha Vantage不支持A股基础信息获取")
+                st.error("❌ Alpha Vantage主要用于美股数据，不支持A股基础信息获取，请使用Tushare")
+                return
+
+            if stock_basic_df is None or stock_basic_df.empty:
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 未获取到股票基础信息")
+                st.error("❌ 未获取到股票基础信息，请检查数据源配置")
+                return
+
+            # 保存到数据库
+            if DB_AVAILABLE:
+                db_manager = get_db_manager()
+                try:
+                    # 使用SQL直接插入，避免pandas兼容性问题
+                    insert_count = 0
+                    for _, row in stock_basic_df.iterrows():
+                        try:
+                            insert_sql = """
+                            INSERT INTO stock_basic (ts_code, symbol, name, area, industry, market, list_date, is_hs)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (ts_code) DO UPDATE SET
+                            name = EXCLUDED.name,
+                            area = EXCLUDED.area,
+                            industry = EXCLUDED.industry,
+                            market = EXCLUDED.market,
+                            list_date = EXCLUDED.list_date,
+                            is_hs = EXCLUDED.is_hs
+                            """
+                            db_manager.execute_postgres_query(insert_sql, params=(
+                                row['ts_code'], row['symbol'], row['name'], row['area'],
+                                row['industry'], row['market'], row['list_date'], row['is_hs']
+                            ))
+                            insert_count += 1
+                        except Exception as insert_e:
+                            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ 插入股票 {row['ts_code']} 失败: {insert_e}")
+
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ 成功保存 {insert_count} 只股票基础信息到数据库")
+                except Exception as db_e:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 数据库保存失败: {db_e}")
+                    st.error(f"数据库保存失败: {db_e}")
+            else:
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ 数据库不可用，跳过保存")
+
+        except Exception as e:
+            error_msg = str(e)
+            if "权限" in error_msg or "permission" in error_msg.lower():
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ API权限不足: {error_msg}")
+                st.error(f"❌ 更新股票基础信息失败：API权限不足 - {error_msg}")
+            elif "limit" in error_msg.lower() or "quota" in error_msg.lower():
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ API调用限制: {error_msg}")
+                st.error(f"❌ 更新股票基础信息失败：API调用超限 - {error_msg}")
+            else:
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 更新股票基础信息失败: {error_msg}")
+                st.error(f"❌ 更新股票基础信息失败: {error_msg}")
+            return
+
+        log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+
+        # 3. 更新日线行情数据
+        total_progress.progress(30)
+        total_status.text("更新日线行情数据...")
+
+        # 确定要更新的日期
+        if update_type == "指定日期" and target_date:
+            trade_dates = [target_date.strftime('%Y%m%d')]
+        elif update_type == "增量更新":
+            # 获取最近5个交易日
+            trade_dates = get_recent_trade_dates(5)
+        else:
+            # 默认更新6月13日
+            trade_dates = ['20240613']
+
+        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 准备更新日期: {', '.join(trade_dates)}")
+        log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+
+        # 获取股票列表
+        if update_scope == "自定义选择" and selected_stocks:
+            stock_list = selected_stocks
+        else:
+            # 从数据库获取股票列表
+            if DB_AVAILABLE and stock_basic_df is not None and not stock_basic_df.empty:
+                try:
+                    # 优先使用刚获取的股票基础信息
+                    if update_scope == "沪深300":
+                        stock_list = stock_basic_df.head(300)['ts_code'].tolist()
+                    elif update_scope == "中证500":
+                        stock_list = stock_basic_df.head(500)['ts_code'].tolist()
+                    elif update_scope == "创业板50":
+                        stock_list = stock_basic_df[stock_basic_df['market'] == '创业板'].head(50)['ts_code'].tolist()
+                    elif update_scope == "科创板50":
+                        stock_list = stock_basic_df[stock_basic_df['market'] == '科创板'].head(50)['ts_code'].tolist()
+                    else:
+                        stock_list = stock_basic_df['ts_code'].tolist()
+                except Exception as e:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ 从基础信息获取股票列表失败: {e}")
+                    # 备选：从数据库获取
+                    try:
+                        db_manager = get_db_manager()
+                        stock_query = "SELECT ts_code FROM stock_basic WHERE is_hs = 'Y' LIMIT 100"
+                        stock_df = db_manager.execute_postgres_query(stock_query)
+                        stock_list = stock_df['ts_code'].tolist() if not stock_df.empty else []
+                    except Exception as db_e:
+                        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ 从数据库获取股票列表也失败: {db_e}")
+                        stock_list = ['000001.SZ', '000002.SZ', '600000.SH', '600036.SH', '000858.SZ']
+            else:
+                # 使用预定义的股票列表
+                stock_list = [
+                    '000001.SZ', '000002.SZ', '000858.SZ', '600000.SH', '600036.SH',
+                    '600519.SH', '300750.SZ', '002415.SZ', '600104.SH', '000725.SZ'
+                ]
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 使用预定义股票列表")
+
+        if not stock_list:
+            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 股票列表为空，无法更新行情数据")
+            st.error("❌ 股票列表为空，无法更新行情数据")
+            return
+
+        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 准备更新 {len(stock_list)} 只股票的行情数据")
+        log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+
+        # 批量更新行情数据
+        total_records = 0
+        for date_idx, trade_date in enumerate(trade_dates):
+            date_progress = 30 + (date_idx * 60 // len(trade_dates))
+            total_progress.progress(date_progress)
+            total_status.text(f"更新 {trade_date} 行情数据...")
+
+            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 开始更新 {trade_date} 的行情数据")
+            log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+
+            quotes_df = None
+            try:
+                if data_source.startswith("Tushare"):
+                    # 使用Tushare批量获取行情数据
+                    quotes_df = client.batch_get_daily_quotes(stock_list, trade_date)
+
+                elif data_source == "AllTick":
+                    # AllTick获取行情数据
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 尝试从AllTick获取 {trade_date} 行情数据...")
+                    try:
+                        # 这里应该调用AllTick的行情数据接口
+                        # quotes_df = client.get_daily_quotes(stock_list, trade_date)
+                        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AllTick行情数据接口暂未实现")
+                        st.error("❌ AllTick行情数据接口暂未实现，请使用Tushare")
+                        continue
+                    except Exception as alltick_e:
+                        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AllTick获取行情失败: {alltick_e}")
+                        continue
+
+                elif data_source == "Alpha Vantage":
+                    # Alpha Vantage获取行情数据（主要用于美股）
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Alpha Vantage不支持A股行情数据")
+                    st.error("❌ Alpha Vantage主要用于美股数据，不支持A股行情，请使用Tushare或AllTick")
+                    continue
+
+                if quotes_df is None or quotes_df.empty:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ {trade_date}: 未获取到行情数据（可能是非交易日）")
+                    continue
+
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 从{data_source}获取到 {len(quotes_df)} 条 {trade_date} 行情数据")
+
+                # 保存到数据库
+                if DB_AVAILABLE:
+                    try:
+                        # 使用SQL直接插入，避免pandas兼容性问题
+                        insert_count = 0
+                        for _, row in quotes_df.iterrows():
+                            try:
+                                insert_sql = """
+                                INSERT INTO stock_daily_quotes
+                                (ts_code, trade_date, open_price, high_price, low_price, close_price,
+                                 pre_close, change_amount, pct_chg, vol, amount)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                ON CONFLICT (ts_code, trade_date) DO UPDATE SET
+                                open_price = EXCLUDED.open_price,
+                                high_price = EXCLUDED.high_price,
+                                low_price = EXCLUDED.low_price,
+                                close_price = EXCLUDED.close_price,
+                                pre_close = EXCLUDED.pre_close,
+                                change_amount = EXCLUDED.change_amount,
+                                pct_chg = EXCLUDED.pct_chg,
+                                vol = EXCLUDED.vol,
+                                amount = EXCLUDED.amount
+                                """
+                                db_manager.execute_postgres_query(insert_sql, params=(
+                                    row['ts_code'], row['trade_date'], row['open_price'], row['high_price'],
+                                    row['low_price'], row['close_price'], row['pre_close'], row['change_amount'],
+                                    row['pct_chg'], row['vol'], row['amount']
+                                ))
+                                insert_count += 1
+                            except Exception as insert_e:
+                                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ 插入 {row['ts_code']} {trade_date} 行情失败: {insert_e}")
+
+                        total_records += insert_count
+                        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ {trade_date}: 成功保存 {insert_count} 条记录")
+                    except Exception as db_e:
+                        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ {trade_date}: 数据库保存失败 - {db_e}")
+                else:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ 数据库不可用，跳过保存")
+
+            except Exception as e:
+                error_msg = str(e)
+                if "权限" in error_msg or "permission" in error_msg.lower():
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ {trade_date}: API权限不足 - {error_msg}")
+                elif "limit" in error_msg.lower() or "quota" in error_msg.lower():
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ {trade_date}: API调用超限 - {error_msg}")
+                elif "timeout" in error_msg.lower():
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ {trade_date}: 请求超时 - {error_msg}")
+                else:
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ {trade_date}: 更新失败 - {error_msg}")
+
+            log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+
+        # 4. 完成
+        total_progress.progress(100)
+        total_status.text("✅ 数据更新完成!")
+        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 🎉 数据更新完成!")
+        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 总计更新: {len(stock_list)} 只股票, {len(trade_dates)} 个交易日, {total_records} 条记录")
+        log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+
+        # 清除缓存
+        st.cache_data.clear()
+
+        # 显示成功信息
+        with progress_container:
+            st.success(f"✅ 数据更新成功!")
+
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("更新股票", f"{len(stock_list):,}")
+            with col2:
+                st.metric("更新日期", len(trade_dates))
+            with col3:
+                st.metric("总记录数", f"{total_records:,}")
+            with col4:
+                st.metric("数据源", data_source)
+
+    except Exception as e:
+        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 数据更新失败: {e}")
+        log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+        st.error(f"❌ 数据更新失败: {e}")
+
+
+def get_recent_trade_dates(days=5):
+    """获取最近的交易日期"""
+    dates = []
+    current_date = datetime.now()
+
+    while len(dates) < days:
+        # 跳过周末
+        if current_date.weekday() < 5:  # 0-4 是周一到周五
+            dates.append(current_date.strftime('%Y%m%d'))
+        current_date -= timedelta(days=1)
+
+    return dates[::-1]  # 返回正序
+
+
+def simulate_data_update(logs, log_area, total_progress, total_status, detail_progress, detail_status):
+    """模拟数据更新过程"""
+    import time
+
+    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 使用模拟数据更新模式")
+    log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+
+    # 模拟更新过程
+    for i in range(100):
+        total_progress.progress(i + 1)
+        total_status.text(f"模拟更新中... {i+1}%")
+
+        if i % 20 == 0:
+            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 模拟进度: {i+1}%")
+            log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+
+        time.sleep(0.02)
+
+    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ 模拟更新完成")
+    log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
 
 
 @st.cache_data(ttl=300)
 def get_stock_list():
     """获取股票列表"""
     try:
-        # 暂时使用模拟数据，因为数据库连接有问题
-        # TODO: 修复数据库连接后替换为真实数据
+        # 优先尝试从数据库获取真实数据
+        if DB_AVAILABLE:
+            try:
+                db_manager = get_db_manager()
+                query = """
+                SELECT ts_code, symbol, name, area, industry, market, list_date
+                FROM stock_basic
+                WHERE is_hs = 'Y' AND market IN ('主板', '创业板', '科创板')
+                ORDER BY ts_code
+                """
+                df = db_manager.execute_postgres_query(query)
 
-        # 生成模拟股票列表
+                if not df.empty:
+                    logger.info(f"从数据库获取到 {len(df)} 只股票数据")
+                    return df
+                else:
+                    logger.warning("数据库中无股票数据，使用模拟数据")
+
+            except Exception as e:
+                logger.error(f"数据库查询失败: {e}，使用模拟数据")
+
+        # 备选方案：使用模拟数据
+        logger.info("使用模拟股票数据")
         stock_codes = [
             "000001.SZ", "000002.SZ", "000858.SZ", "000876.SZ", "002415.SZ",
             "600000.SH", "600036.SH", "600519.SH", "600887.SH", "601318.SH",
@@ -83,10 +553,40 @@ def get_stock_list():
 def get_latest_data_status():
     """获取最新数据状态"""
     try:
-        # 暂时使用模拟数据状态
-        # TODO: 修复数据库连接后替换为真实数据
+        # 优先尝试从数据库获取真实数据状态
+        if DB_AVAILABLE:
+            try:
+                db_manager = get_db_manager()
 
-        # 模拟数据状态
+                # 获取最新交易日期
+                query = """
+                SELECT
+                    MAX(trade_date) as latest_date,
+                    COUNT(DISTINCT ts_code) as stock_count,
+                    COUNT(*) as total_records
+                FROM stock_daily_quotes
+                """
+                result = db_manager.execute_postgres_query(query)
+
+                if not result.empty:
+                    latest_date = result['latest_date'].iloc[0]
+                    stock_count = result['stock_count'].iloc[0]
+                    total_records = result['total_records'].iloc[0]
+
+                    logger.info(f"从数据库获取数据状态: 最新日期={latest_date}, 股票数={stock_count}, 记录数={total_records}")
+
+                    return {
+                        "latest_date": latest_date,
+                        "stock_count": stock_count,
+                        "total_records": total_records,
+                        "is_today": latest_date == datetime.now().date() if latest_date else False
+                    }
+
+            except Exception as e:
+                logger.error(f"数据库查询失败: {e}，使用模拟数据状态")
+
+        # 备选方案：使用模拟数据状态
+        logger.info("使用模拟数据状态")
         latest_date = datetime.now().date() - timedelta(days=1)  # 昨天的数据
         stock_count = 15  # 模拟15只股票
         total_records = 1500  # 模拟1500条记录
@@ -170,9 +670,19 @@ def render_data_update():
     with col1:
         st.subheader("📡 数据源配置")
         
+        # 构建可用数据源列表
+        available_sources = []
+        if TUSHARE_AVAILABLE:
+            available_sources.append("Tushare (推荐)")
+        if ALLTICK_AVAILABLE:
+            available_sources.append("AllTick")
+        if ALPHA_VANTAGE_AVAILABLE:
+            available_sources.append("Alpha Vantage")
+        available_sources.append("模拟数据")
+
         data_source = st.selectbox(
             "选择数据源",
-            ["AllTick", "Alpha Vantage", "模拟数据"],
+            available_sources,
             index=0
         )
         
@@ -216,26 +726,13 @@ def render_data_update():
     
     # 更新按钮
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
         if st.button("🚀 开始更新", type="primary"):
-            with st.spinner("正在更新数据..."):
-                try:
-                    # 这里添加实际的数据更新逻辑
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-                    
-                    # 模拟更新过程
-                    for i in range(100):
-                        progress_bar.progress(i + 1)
-                        status_text.text(f"正在更新... {i+1}%")
-                        # time.sleep(0.01)  # 实际使用时移除
-                    
-                    st.success("数据更新完成！")
-                    st.cache_data.clear()  # 清除缓存
-                    
-                except Exception as e:
-                    st.error(f"数据更新失败: {e}")
+            execute_real_data_update(
+                data_source, update_type, target_date,
+                update_scope, selected_stocks
+            )
     
     with col2:
         if st.button("📊 验证数据"):

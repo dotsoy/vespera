@@ -21,7 +21,7 @@ def main():
     
     try:
         # Dashboard应用路径
-        app_path = project_root / "dashboard" / "app_v2.py"
+        app_path = project_root / "dashboard" / "app.py"
         
         if not app_path.exists():
             logger.error(f"Dashboard应用文件不存在: {app_path}")
