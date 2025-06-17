@@ -497,8 +497,12 @@ class AkShareDataSource(BaseDataSource):
         elif interface == 'tool_trade_date_hist_sina':
             # 备用接口2 - 使用新浪数据
             try:
-                return ak.tool_trade_date_hist_sina(symbol=symbol)
-            except AttributeError:
+                df = ak.tool_trade_date_hist_sina(symbol=symbol)
+                if not df.empty:
+                    logger.info("备用接口 tool_trade_date_hist_sina 获取日线行情成功")
+                    return df
+            except Exception as e:
+                logger.warning(f"备用接口 tool_trade_date_hist_sina 也失败: {e}")
                 raise DataSourceError(f"接口 {interface} 不存在", self.name)
         else:
             # 默认使用主接口
