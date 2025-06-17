@@ -53,13 +53,9 @@ class DatabaseSettings(BaseSettings):
 class DataSourceSettings(BaseSettings):
     """数据源配置"""
 
-    # Tushare 配置
-    tushare_token: str = Field(default="", env="TUSHARE_TOKEN")
-    tushare_timeout: int = Field(default=30, env="TUSHARE_TIMEOUT")
-
-    # AllTick 配置
-    alltick_token: str = Field(default="", env="ALLTICK_TOKEN")
-    alltick_timeout: int = Field(default=30, env="ALLTICK_TIMEOUT")
+    # AkShare 配置（免费，无需API key）
+    akshare_enabled: bool = Field(default=True, env="AKSHARE_ENABLED")
+    akshare_timeout: int = Field(default=30, env="AKSHARE_TIMEOUT")
 
     # Yahoo Finance 配置（免费，无需API key）
     yahoo_finance_enabled: bool = Field(default=True, env="YAHOO_FINANCE_ENABLED")

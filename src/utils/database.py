@@ -144,12 +144,12 @@ class DatabaseManager:
             # 首先处理表创建或清空操作
             with self.postgres_engine.begin() as conn:
                 if if_exists == 'replace':
-                    conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+                    conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
                     metadata.create_all(self.postgres_engine)
                     # 重新加载表对象，因为表结构可能已更改
                     table = Table(table_name, metadata, autoload_with=self.postgres_engine)
                 elif if_exists == 'truncate':
-                    conn.execute(f"TRUNCATE TABLE {table_name}")
+                    conn.execute(text(f"TRUNCATE TABLE {table_name}"))
             
             # 确保表已创建
             metadata.create_all(self.postgres_engine)

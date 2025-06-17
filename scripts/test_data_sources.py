@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-测试不同数据源的可用性
+测试AkShare数据源的可用性
 """
 import sys
 from pathlib import Path
@@ -15,80 +15,47 @@ from src.utils.logger import get_logger
 logger = get_logger("test_data_sources")
 
 
-def test_tushare():
-    """测试Tushare数据源"""
-    logger.info("🔍 测试Tushare数据源...")
-    
+def test_akshare():
+    """测试AkShare数据源"""
+    logger.info("🔍 测试AkShare数据源...")
+
     try:
-        from src.data_sources.tushare_client import TushareClient
-        logger.info("✅ Tushare模块导入成功")
-        
+        from src.data_sources.akshare_data_source import AkShareDataSource
+        from src.data_sources.base_data_source import DataRequest, DataType
+        logger.info("✅ AkShare模块导入成功")
+
         # 初始化客户端
-        client = TushareClient()
-        logger.info("✅ Tushare客户端初始化成功")
-        
+        client = AkShareDataSource()
+        logger.info("✅ AkShare数据源初始化成功")
+
+        # 初始化数据源
+        if not client.initialize():
+            logger.error("❌ AkShare数据源初始化失败")
+            return False, "数据源初始化失败"
+
         # 测试获取股票基础信息
-        try:
-            stock_basic = client.get_stock_basic()
-            if not stock_basic.empty:
-                logger.info(f"✅ Tushare股票基础信息获取成功: {len(stock_basic)} 只股票")
-                return True, "成功"
-            else:
-                logger.warning("⚠️ Tushare股票基础信息为空")
-                return False, "数据为空"
-        except Exception as api_e:
-            error_msg = str(api_e)
-            if "权限" in error_msg or "permission" in error_msg.lower():
-                logger.error(f"❌ Tushare API权限不足: {error_msg}")
-                return False, f"API权限不足: {error_msg}"
-            elif "token" in error_msg.lower():
-                logger.error(f"❌ Tushare Token配置错误: {error_msg}")
-                return False, f"Token配置错误: {error_msg}"
-            else:
-                logger.error(f"❌ Tushare API调用失败: {error_msg}")
-                return False, f"API调用失败: {error_msg}"
-        
-    except ImportError as e:
-        logger.error(f"❌ Tushare模块导入失败: {e}")
-        return False, f"模块导入失败: {e}"
+        logger.info("📡 测试获取股票基础信息...")
+        request = DataRequest(data_type=DataType.STOCK_BASIC)
+        response = client.fetch_data(request)
+
+        if response.success and not response.data.empty:
+            stock_basic = response.data
+            logger.info(f"✅ 获取到 {len(stock_basic)} 只股票基础信息")
+            logger.info("📋 样本数据:")
+            for _, row in stock_basic.head(3).iterrows():
+                logger.info(f"  {row['ts_code']} - {row['name']} - {row['market']}")
+            return True, f"成功获取 {len(stock_basic)} 只股票"
+        else:
+            logger.error("❌ 未获取到股票基础信息")
+            return False, "未获取到股票基础信息"
+
     except Exception as e:
-        logger.error(f"❌ Tushare测试失败: {e}")
-        return False, f"测试失败: {e}"
+        error_msg = str(e)
+        logger.error(f"❌ AkShare测试失败: {error_msg}")
+        return False, f"测试失败: {error_msg}"
 
 
-def test_alltick():
-    """测试AllTick数据源"""
-    logger.info("🔍 测试AllTick数据源...")
-    
-    try:
-        from src.data_sources.alltick_data_source import AllTickDataSource
-        logger.info("✅ AllTick模块导入成功")
-        
-        # 初始化客户端
-        try:
-            client = AllTickDataSource()
-            logger.info("✅ AllTick客户端初始化成功")
-            
-            # 测试连接
-            # 这里应该有具体的测试逻辑
-            logger.info("⚠️ AllTick连接测试暂未实现")
-            return False, "连接测试暂未实现"
-            
-        except Exception as init_e:
-            error_msg = str(init_e)
-            if "token" in error_msg.lower() or "key" in error_msg.lower():
-                logger.error(f"❌ AllTick Token配置错误: {error_msg}")
-                return False, f"Token配置错误: {error_msg}"
-            else:
-                logger.error(f"❌ AllTick初始化失败: {error_msg}")
-                return False, f"初始化失败: {error_msg}"
-        
-    except ImportError as e:
-        logger.error(f"❌ AllTick模块导入失败: {e}")
-        return False, f"模块导入失败: {e}"
-    except Exception as e:
-        logger.error(f"❌ AllTick测试失败: {e}")
-        return False, f"测试失败: {e}"
+# AllTick数据源已移除
 
 
 def test_alpha_vantage():
@@ -160,30 +127,18 @@ def main():
     """主函数"""
     logger.info("🚀 数据源可用性测试")
     logger.info("=" * 50)
-    
+
     # 测试结果
     results = {}
-    
-    # 1. 测试Tushare
-    logger.info("\n📋 测试 1/4: Tushare数据源")
+
+    # 1. 测试AkShare
+    logger.info("\n📋 测试 1/2: AkShare数据源")
     logger.info("-" * 30)
-    success, message = test_tushare()
-    results['Tushare'] = {'success': success, 'message': message}
-    
-    # 2. 测试AllTick
-    logger.info("\n📋 测试 2/4: AllTick数据源")
-    logger.info("-" * 30)
-    success, message = test_alltick()
-    results['AllTick'] = {'success': success, 'message': message}
-    
-    # 3. 测试Alpha Vantage
-    logger.info("\n📋 测试 3/4: Alpha Vantage数据源")
-    logger.info("-" * 30)
-    success, message = test_alpha_vantage()
-    results['Alpha Vantage'] = {'success': success, 'message': message}
-    
-    # 4. 测试数据库
-    logger.info("\n📋 测试 4/4: 数据库连接")
+    success, message = test_akshare()
+    results['AkShare'] = {'success': success, 'message': message}
+
+    # 2. 测试数据库
+    logger.info("\n📋 测试 2/2: 数据库连接")
     logger.info("-" * 30)
     success, message = test_database()
     results['Database'] = {'success': success, 'message': message}
@@ -210,14 +165,12 @@ def main():
     
     # 建议
     logger.info("\n💡 建议:")
-    if 'Tushare' in available_sources:
-        logger.info("  - 推荐使用Tushare获取A股数据（股票基础信息 + 日线行情）")
-    elif 'AllTick' in available_sources:
-        logger.info("  - 可以使用AllTick获取A股数据（需要实现具体接口）")
+    if 'AkShare' in available_sources:
+        logger.info("  - 推荐使用AkShare获取A股数据（免费，无需API key）")
+        logger.info("  - AkShare支持股票基础信息、日线行情、指数数据等")
     else:
-        logger.info("  - 当前无可用的A股数据源，请检查配置")
-        logger.info("  - Tushare: 检查Token配置和API权限")
-        logger.info("  - AllTick: 检查Token配置和接口实现")
+        logger.info("  - 当前AkShare数据源不可用，请检查网络连接")
+        logger.info("  - AkShare是免费数据源，无需配置API key")
     
     if 'Database' in available_sources:
         logger.info("  - 数据库连接正常，可以保存数据")

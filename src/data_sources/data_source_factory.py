@@ -6,8 +6,7 @@ from typing import Dict, Any, Optional, List
 from loguru import logger
 
 from .base_data_source import BaseDataSource, DataSourceType
-from .tushare_data_source import TushareDataSource
-from .alltick_data_source import AllTickDataSource
+from .akshare_data_source import AkShareDataSource
 
 # 可选导入，避免依赖问题
 try:
@@ -33,8 +32,7 @@ class DataSourceFactory:
     
     def __init__(self):
         self.data_source_classes = {
-            DataSourceType.TUSHARE: TushareDataSource,
-            DataSourceType.ALLTICK: AllTickDataSource
+            DataSourceType.AKSHARE: AkShareDataSource
         }
 
         # 添加可选数据源
@@ -42,17 +40,12 @@ class DataSourceFactory:
             self.data_source_classes[DataSourceType.YAHOO_FINANCE] = YahooFinanceDataSource
         if ALPHA_VANTAGE_AVAILABLE:
             self.data_source_classes[DataSourceType.ALPHA_VANTAGE] = AlphaVantageDataSource
-        
+
         self.default_configs = {
-            DataSourceType.TUSHARE: {
+            DataSourceType.AKSHARE: {
                 'priority': 1,
-                'rate_limit': 200,
-                'description': 'Tushare专业金融数据接口'
-            },
-            DataSourceType.ALLTICK: {
-                'priority': 2,
-                'rate_limit': 100,
-                'description': 'AllTick专业金融数据API'
+                'rate_limit': 1000,
+                'description': 'AkShare免费A股数据接口'
             }
         }
 
@@ -93,24 +86,12 @@ class DataSourceFactory:
         
         try:
             source_class = self.data_source_classes[source_type]
-            
-            if source_type == DataSourceType.TUSHARE:
+
+            if source_type == DataSourceType.AKSHARE:
                 return source_class(final_config)
-            elif source_type == DataSourceType.ALLTICK:
-                token = final_config.get('token') or getattr(data_settings, 'alltick_token', None)
-                if not token:
-                    logger.error("AllTick token 未配置")
-                    return None
-                return source_class(token, final_config)
             elif source_type == DataSourceType.YAHOO_FINANCE and YAHOO_FINANCE_AVAILABLE:
                 return source_class(final_config)
-            elif source_type == DataSourceType.ALPHA_VANTAGE and ALPHA_VANTAGE_AVAILABLE:
-                api_key = final_config.get('api_key') or getattr(data_settings, 'alpha_vantage_api_key', None)
-                if not api_key:
-                    logger.error("Alpha Vantage API key 未配置")
-                    return None
-                return source_class(api_key, final_config)
-            
+
         except Exception as e:
             logger.error(f"创建数据源 {source_type} 失败: {e}")
             return None
@@ -149,25 +130,14 @@ class DataSourceFactory:
     def _get_default_source_configs(self) -> List[Dict[str, Any]]:
         """获取默认数据源配置"""
         configs = []
-        
-        # Tushare配置
-        if hasattr(data_settings, 'tushare_token') and data_settings.tushare_token:
+
+        # AkShare配置（免费，如果启用）
+        if hasattr(data_settings, 'akshare_enabled') and data_settings.akshare_enabled:
             configs.append({
-                'type': DataSourceType.TUSHARE.value,
+                'type': DataSourceType.AKSHARE.value,
                 'config': {
                     'priority': 1,
-                    'rate_limit': 200
-                }
-            })
-
-        # AllTick配置
-        if hasattr(data_settings, 'alltick_token') and data_settings.alltick_token:
-            configs.append({
-                'type': DataSourceType.ALLTICK.value,
-                'config': {
-                    'priority': 2,
-                    'rate_limit': 100,
-                    'token': data_settings.alltick_token
+                    'rate_limit': 1000
                 }
             })
 
@@ -176,22 +146,11 @@ class DataSourceFactory:
             configs.append({
                 'type': DataSourceType.YAHOO_FINANCE.value,
                 'config': {
-                    'priority': 3,
+                    'priority': 2,
                     'rate_limit': 2000
                 }
             })
 
-        # Alpha Vantage配置
-        if ALPHA_VANTAGE_AVAILABLE and hasattr(data_settings, 'alpha_vantage_api_key') and data_settings.alpha_vantage_api_key:
-            configs.append({
-                'type': DataSourceType.ALPHA_VANTAGE.value,
-                'config': {
-                    'priority': 4,
-                    'rate_limit': 5,
-                    'api_key': data_settings.alpha_vantage_api_key
-                }
-            })
-        
         return configs
 
 

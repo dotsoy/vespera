@@ -25,36 +25,22 @@ logger = get_logger("data_source_manager")
 DATA_SOURCES = {}
 
 try:
-    from src.data_sources.alltick_client import AllTickClient
-    DATA_SOURCES['AllTick'] = {
-        'client': AllTickClient,
+    from src.data_sources.akshare_data_source import AkShareDataSource
+    DATA_SOURCES['AkShare'] = {
+        'client': AkShareDataSource,
         'available': True,
-        'description': '专业的A股实时数据源',
-        'features': ['实时行情', '历史数据', '资金流向', '技术指标']
+        'description': '免费的A股数据源',
+        'features': ['股票基础信息', '日线行情', '指数数据', '财务数据']
     }
 except ImportError:
-    DATA_SOURCES['AllTick'] = {
+    DATA_SOURCES['AkShare'] = {
         'client': None,
         'available': False,
-        'description': '专业的A股实时数据源 (未配置)',
-        'features': ['实时行情', '历史数据', '资金流向', '技术指标']
+        'description': '免费的A股数据源 (未配置)',
+        'features': ['股票基础信息', '日线行情', '指数数据', '财务数据']
     }
 
-try:
-    from src.data_sources.alpha_vantage_client import AlphaVantageClient
-    DATA_SOURCES['Alpha Vantage'] = {
-        'client': AlphaVantageClient,
-        'available': True,
-        'description': '国际金融数据API',
-        'features': ['股票数据', '外汇数据', '加密货币', '技术指标']
-    }
-except ImportError:
-    DATA_SOURCES['Alpha Vantage'] = {
-        'client': None,
-        'available': False,
-        'description': '国际金融数据API (未配置)',
-        'features': ['股票数据', '外汇数据', '加密货币', '技术指标']
-    }
+# Alpha Vantage已移除
 
 # 不再使用模拟数据源
 # DATA_SOURCES['模拟数据'] = {
@@ -383,12 +369,12 @@ def render_fetch_history():
     # 不同数据源的拉取记录
     history_data = []
     for date in dates:
-        for source in ['AllTick', 'Alpha Vantage']:
+        for source in ['AkShare']:
             if source in DATA_SOURCES and DATA_SOURCES[source]['available']:
                 # 模拟成功率和拉取量
                 success_rate = 0.95
                 records = np.random.randint(1000, 5000)
-                
+
                 history_data.append({
                     'date': date,
                     'source': source,
@@ -449,96 +435,54 @@ def render_data_source_config():
     st.header("⚙️ 数据源配置")
     
     # 配置选项卡
-    tab1, tab2, tab3 = st.tabs(["AllTick配置", "Alpha Vantage配置", "通用配置"])
-    
+    tab1, tab2 = st.tabs(["AkShare配置", "通用配置"])
+
     with tab1:
-        st.subheader("🔧 AllTick API 配置")
-        
+        st.subheader("🔧 AkShare 配置")
+
         col1, col2 = st.columns(2)
         with col1:
-            alltick_token = st.text_input(
-                "API Token",
-                value=data_settings.alltick_token if hasattr(data_settings, 'alltick_token') else "",
-                type="password"
+            akshare_enabled = st.checkbox(
+                "启用AkShare数据源",
+                value=data_settings.akshare_enabled if hasattr(data_settings, 'akshare_enabled') else True
             )
-            alltick_timeout = st.number_input(
+            akshare_timeout = st.number_input(
                 "请求超时(秒)",
                 value=30,
                 min_value=5,
                 max_value=300
             )
-        
+            rate_limit = st.number_input(
+                "频率限制(请求/分钟)",
+                value=1000,
+                min_value=100,
+                max_value=5000
+            )
+
         with col2:
             st.info("""
-            **AllTick API 说明:**
-            - 提供A股实时和历史数据
-            - 支持分钟级和日级数据
-            - 包含资金流向数据
-            - 需要有效的API Token
+            **AkShare 说明:**
+            - 免费的A股数据源
+            - 无需API Token
+            - 支持股票基础信息、日线行情
+            - 支持指数数据和财务数据
+            - 数据来源可靠，更新及时
             """)
-        
-        if st.button("🧪 测试 AllTick 连接"):
-            if alltick_token:
-                try:
-                    from src.data_sources.alltick_client import AllTickClient
-                    with st.spinner("测试连接中..."):
-                        client = AllTickClient(token=alltick_token)
-                        # 尝试获取一个简单的响应来测试连接
-                        response = client.test_connection()
-                        if response:
-                            st.success("✅ AllTick 连接测试成功!")
-                        else:
-                            st.error("❌ AllTick 连接测试失败，请检查API Token。")
-                except Exception as e:
-                    st.error(f"❌ AllTick 连接测试失败: {e}")
-            else:
-                st.error("❌ 请输入有效的API Token")
+
+        if st.button("🧪 测试 AkShare 连接"):
+            try:
+                from src.data_sources.akshare_data_source import AkShareDataSource
+                with st.spinner("测试连接中..."):
+                    client = AkShareDataSource()
+                    # 测试连接
+                    if client.initialize():
+                        st.success("✅ AkShare 连接测试成功!")
+                    else:
+                        st.error("❌ AkShare 连接测试失败，请检查网络连接。")
+            except Exception as e:
+                st.error(f"❌ AkShare 连接测试失败: {e}")
     
     with tab2:
-        st.subheader("🔧 Alpha Vantage API 配置")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            av_token = st.text_input(
-                "API Key",
-                value=data_settings.alpha_vantage_api_key if hasattr(data_settings, 'alpha_vantage_api_key') else "",
-                type="password"
-            )
-            av_timeout = st.number_input(
-                "请求超时(秒)",
-                value=30,
-                min_value=5,
-                max_value=300,
-                key="av_timeout"
-            )
-        
-        with col2:
-            st.info("""
-            **Alpha Vantage API 说明:**
-            - 提供全球股票数据
-            - 支持技术指标计算
-            - 免费版有请求限制
-            - 需要注册获取API Key
-            """)
-        
-        if st.button("🧪 测试 Alpha Vantage 连接"):
-            if av_token:
-                try:
-                    from src.data_sources.alpha_vantage_client import AlphaVantageClient
-                    with st.spinner("测试连接中..."):
-                        client = AlphaVantageClient(api_key=av_token)
-                        # 尝试获取一个简单的响应来测试连接
-                        response = client.test_connection()
-                        if response:
-                            st.success("✅ Alpha Vantage 连接测试成功!")
-                        else:
-                            st.error("❌ Alpha Vantage 连接测试失败，请检查API Key。")
-                except Exception as e:
-                    st.error(f"❌ Alpha Vantage 连接测试失败: {e}")
-            else:
-                st.error("❌ 请输入有效的API Key")
-    
-    with tab3:
         st.subheader("🔧 通用配置")
         
         col1, col2 = st.columns(2)

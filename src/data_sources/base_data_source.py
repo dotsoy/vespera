@@ -13,11 +13,8 @@ from loguru import logger
 
 class DataSourceType(Enum):
     """数据源类型枚举"""
-    TUSHARE = "tushare"
-    YAHOO_FINANCE = "yahoo_finance"
-    ALPHA_VANTAGE = "alpha_vantage"
-    ALLTICK = "alltick"
     AKSHARE = "akshare"
+    YAHOO_FINANCE = "yahoo_finance"
     WIND = "wind"
     EASTMONEY = "eastmoney"
     LOCAL_FILE = "local_file"
@@ -66,10 +63,12 @@ class DataResponse:
 
 class DataSourceStatus(Enum):
     """数据源状态"""
+    READY = "ready"
     AVAILABLE = "available"
     UNAVAILABLE = "unavailable"
     LIMITED = "limited"
     ERROR = "error"
+    CLOSED = "closed"
 
 
 @dataclass

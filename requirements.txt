@@ -14,7 +14,7 @@ clickhouse-driver
 alembic
 
 # 数据获取
-tushare
+akshare
 requests
 beautifulsoup4
 selenium

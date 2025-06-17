@@ -17,7 +17,8 @@ sys.path.insert(0, str(project_root))
 
 from src.utils.logger import get_logger
 from src.utils.database import get_db_manager
-from src.data_sources.tushare_client import TushareClient
+from src.data_sources.akshare_data_source import AkShareDataSource
+from src.data_sources.base_data_source import DataRequest, DataType
 
 logger = get_logger("clean_and_import")
 
@@ -76,34 +77,39 @@ def get_all_a_stocks():
     """获取全A股股票列表"""
     try:
         logger.info("📋 获取全A股股票列表")
-        
-        tushare_client = TushareClient()
-        
+
+        akshare_client = AkShareDataSource()
+
+        # 初始化数据源
+        if not akshare_client.initialize():
+            logger.error("❌ AkShare数据源初始化失败")
+            return pd.DataFrame()
+
         # 获取所有A股股票基础信息
-        stock_basic = tushare_client.get_stock_basic()
-        
-        if stock_basic.empty:
+        request = DataRequest(data_type=DataType.STOCK_BASIC)
+        response = akshare_client.fetch_data(request)
+
+        if not response.success or response.data.empty:
             logger.error("❌ 无法获取股票基础信息")
             return pd.DataFrame()
-        
+
+        stock_basic = response.data
+
         # 过滤A股 (排除退市、ST等)
         a_stocks = stock_basic[
-            (stock_basic['market'] == '主板') |
-            (stock_basic['market'] == '创业板') |
-            (stock_basic['market'] == '科创板') |
-            (stock_basic['market'] == '北交所')
+            (stock_basic['market'].isin(['深交所主板', '创业板', '上交所主板', '科创板', '北交所']))
         ].copy()
-        
+
         # 进一步过滤，排除退市股票
         a_stocks = a_stocks[
             (~a_stocks['name'].str.contains('ST', na=False)) &
             (~a_stocks['name'].str.contains('退', na=False)) &
             (a_stocks['list_status'] == 'L')  # 上市状态
         ].copy()
-        
+
         logger.info(f"✅ 获取到 {len(a_stocks)} 只A股股票")
         return a_stocks
-        
+
     except Exception as e:
         logger.error(f"❌ 获取股票列表失败: {e}")
         return pd.DataFrame()
@@ -157,59 +163,67 @@ def import_stock_daily_data(stock_list: pd.DataFrame, days: int = 60):
     """导入股票日线数据"""
     try:
         logger.info(f"📈 开始导入股票日线数据 (最近{days}天)")
-        
-        tushare_client = TushareClient()
+
+        akshare_client = AkShareDataSource()
         db = get_db_manager()
-        
+
+        # 初始化数据源
+        if not akshare_client.initialize():
+            logger.error("❌ AkShare数据源初始化失败")
+            return 0, 0
+
         # 计算日期范围
-        end_date = datetime.now().strftime('%Y%m%d')
-        start_date = (datetime.now() - timedelta(days=days*2)).strftime('%Y%m%d')  # 多取一些天数确保有足够交易日
-        
-        logger.info(f"数据日期范围: {start_date} - {end_date}")
-        
+        end_date = datetime.now()
+        start_date = datetime.now() - timedelta(days=days*2)  # 多取一些天数确保有足够交易日
+
+        logger.info(f"数据日期范围: {start_date.strftime('%Y-%m-%d')} - {end_date.strftime('%Y-%m-%d')}")
+
         total_stocks = len(stock_list)
         success_count = 0
         error_count = 0
         total_records = 0
-        
+
         # 分批处理股票
-        batch_size = 50  # 每批处理50只股票
-        
+        batch_size = 20  # 每批处理20只股票，AkShare频率限制较严
+
         for batch_start in range(0, total_stocks, batch_size):
             batch_end = min(batch_start + batch_size, total_stocks)
             batch_stocks = stock_list.iloc[batch_start:batch_end]
-            
+
             logger.info(f"处理第 {batch_start//batch_size + 1} 批股票 ({batch_start+1}-{batch_end}/{total_stocks})")
-            
+
             batch_data = []
-            
+
             for _, stock in batch_stocks.iterrows():
                 ts_code = stock['ts_code']
-                
+
                 try:
                     # 获取股票日线数据
-                    daily_data = tushare_client.get_daily_quotes(
-                        ts_code=ts_code,
+                    request = DataRequest(
+                        data_type=DataType.DAILY_QUOTES,
+                        symbol=ts_code,
                         start_date=start_date,
                         end_date=end_date
                     )
-                    
-                    if not daily_data.empty:
+                    response = akshare_client.fetch_data(request)
+
+                    if response.success and not response.data.empty:
+                        daily_data = response.data
                         # 只保留最近的交易日
                         daily_data = daily_data.sort_values('trade_date').tail(days)
                         batch_data.append(daily_data)
                         success_count += 1
                         total_records += len(daily_data)
-                        
+
                         if success_count % 10 == 0:
                             logger.info(f"已处理 {success_count} 只股票，累计 {total_records} 条记录")
                     else:
                         logger.warning(f"股票 {ts_code} 无数据")
                         error_count += 1
-                    
-                    # 控制API调用频率
-                    time.sleep(0.1)
-                    
+
+                    # 控制API调用频率，AkShare需要更长间隔
+                    time.sleep(0.2)
+
                 except Exception as e:
                     logger.error(f"获取股票 {ts_code} 数据失败: {e}")
                     error_count += 1

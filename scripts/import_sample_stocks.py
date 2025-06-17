@@ -17,7 +17,8 @@ sys.path.insert(0, str(project_root))
 
 from src.utils.logger import get_logger
 from src.utils.database import get_db_manager
-from src.data_sources.tushare_client import TushareClient
+from src.data_sources.akshare_data_source import AkShareDataSource
+from src.data_sources.base_data_source import DataRequest, DataType
 
 logger = get_logger("import_sample_stocks")
 
@@ -145,37 +146,45 @@ def import_stock_daily_data(stock_list: pd.DataFrame, days: int = 60):
     """导入股票日线数据"""
     try:
         logger.info(f"📈 导入股票日线数据 (最近{days}天)")
-        
-        tushare_client = TushareClient()
+
+        akshare_client = AkShareDataSource()
         db = get_db_manager()
-        
+
+        # 初始化数据源
+        if not akshare_client.initialize():
+            logger.error("❌ AkShare数据源初始化失败")
+            return 0, 0
+
         # 计算日期范围
-        end_date = datetime.now().strftime('%Y%m%d')
-        start_date = (datetime.now() - timedelta(days=days*2)).strftime('%Y%m%d')
-        
-        logger.info(f"数据日期范围: {start_date} - {end_date}")
-        
+        end_date = datetime.now()
+        start_date = datetime.now() - timedelta(days=days*2)
+
+        logger.info(f"数据日期范围: {start_date.strftime('%Y-%m-%d')} - {end_date.strftime('%Y-%m-%d')}")
+
         success_count = 0
         error_count = 0
         total_records = 0
-        
+
         for _, stock in stock_list.iterrows():
             ts_code = stock['ts_code']
-            
+
             try:
                 logger.info(f"获取股票 {ts_code} ({stock['name']}) 的数据")
-                
+
                 # 获取日线数据
-                daily_data = tushare_client.get_daily_quotes(
-                    ts_code=ts_code,
+                request = DataRequest(
+                    data_type=DataType.DAILY_QUOTES,
+                    symbol=ts_code,
                     start_date=start_date,
                     end_date=end_date
                 )
-                
-                if not daily_data.empty:
+                response = akshare_client.fetch_data(request)
+
+                if response.success and not response.data.empty:
+                    daily_data = response.data
                     # 只保留最近的交易日
                     daily_data = daily_data.sort_values('trade_date').tail(days)
-                    
+
                     # 插入数据库
                     db.insert_dataframe_to_postgres(
                         daily_data,
@@ -183,17 +192,17 @@ def import_stock_daily_data(stock_list: pd.DataFrame, days: int = 60):
                         if_exists='append',
                         index=False
                     )
-                    
+
                     success_count += 1
                     total_records += len(daily_data)
                     logger.info(f"✅ {ts_code} 导入 {len(daily_data)} 条记录")
                 else:
                     logger.warning(f"⚠️ {ts_code} 无数据")
                     error_count += 1
-                
+
                 # 控制API调用频率
-                time.sleep(0.2)
-                
+                time.sleep(0.3)
+
             except Exception as e:
                 logger.error(f"❌ 获取 {ts_code} 数据失败: {e}")
                 error_count += 1

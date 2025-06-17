@@ -22,7 +22,7 @@
 ### 🚀 Dashboard v2.0 全新设计
 - **🖥️ 系统状态**: 实时监控系统资源、数据库连接、策略状态
 - **📊 数据管理**: 股票选择、数据更新、导出功能
-- **📡 数据源管理**: AllTick/Alpha Vantage数据源管理和监控
+- **📡 数据源管理**: AkShare数据源管理和监控
 - **🎯 策略分析**: 启明星策略分析和信号生成
 - **📈 回测可视化**: 买卖点标记、权益曲线、交易分析
 
@@ -34,7 +34,7 @@
 - **技术分析**: Tulipy (替代 TA-Lib，更易安装)
 - **前端框架**: Streamlit + Plotly (Dashboard v2.0)
 - **研究工具**: Marimo 交互式笔记本
-- **数据源**: AllTick + Alpha Vantage + 模拟数据
+- **数据源**: AkShare (免费A股数据) + 模拟数据
 - **部署方案**: Docker + Docker Compose
 
 ### 架构特点
@@ -73,7 +73,7 @@ http://localhost:8501
 1. **环境配置**
 ```bash
 cp .env.example .env
-# 编辑 .env 文件，配置数据源API Token
+# AkShare无需API Token，开箱即用
 ```
 
 2. **安装依赖**
@@ -147,7 +147,7 @@ cloudmere-agument/
 - [x] **Dashboard v2.0** - 全新设计的分析平台
   - [x] 系统状态监控 (资源、数据库、策略)
   - [x] 数据管理 (股票选择、数据更新、导出)
-  - [x] 数据源管理 (AllTick/Alpha Vantage监控)
+  - [x] 数据源管理 (AkShare监控)
   - [x] 策略分析 (信号生成、分析报告)
   - [x] 回测可视化 (买卖点、权益曲线)
 - [x] **Marimo研究室** - 交互式策略分析
@@ -156,7 +156,7 @@ cloudmere-agument/
 
 ### 🔄 进行中
 - [ ] 数据库连接优化
-- [ ] 真实数据源集成 (AllTick, Alpha Vantage)
+- [x] 真实数据源集成 (AkShare免费数据源)
 - [ ] 更多技术指标集成
 
 ## 🔧 可用命令
@@ -192,9 +192,9 @@ make test-system            # 运行完整系统测试
 - **数据导出**: CSV、JSON格式导出
 
 ### 📡 数据源管理
-- **数据源监控**: AllTick、Alpha Vantage状态监控
+- **数据源监控**: AkShare状态监控
 - **拉取管理**: 可视化数据拉取进度和状态
-- **配置管理**: API Token配置和连接测试
+- **配置管理**: 无需API Token，开箱即用
 - **历史统计**: 拉取历史和成功率统计
 
 ### 🎯 策略分析
