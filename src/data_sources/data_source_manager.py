@@ -233,6 +233,11 @@ class DataSourceManager:
         try:
             from src.utils.database import DatabaseManager
             db_manager = DatabaseManager()
+            # 确保 start_date 和 end_date 是 datetime 对象
+            if isinstance(request.start_date, str):
+                request.start_date = datetime.strptime(request.start_date, '%Y%m%d')
+            if isinstance(request.end_date, str):
+                request.end_date = datetime.strptime(request.end_date, '%Y%m%d')
             # 格式化日期为 YYYY-MM-DD
             start_date = request.start_date.strftime('%Y-%m-%d')
             end_date = request.end_date.strftime('%Y-%m-%d')
