@@ -53,6 +53,9 @@ class AkShareDataSource(BaseDataSource):
         self.interface_cooldown_time = 300  # 接口冷却时间（秒）
         self.max_interface_errors = 3  # 接口最大错误次数
 
+        # 降低冷却阈值，确保请求不被频繁拒绝
+        self.cool_down_threshold = 0.5  # 降低冷却阈值
+
         logger.info(f"AkShare数据源初始化完成，频率限制: {self.rate_limit}/分钟，支持多接口轮换")
 
     def initialize(self) -> bool:
