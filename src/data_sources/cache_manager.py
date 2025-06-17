@@ -114,9 +114,9 @@ class CacheManager:
         
         return None
     
-    def put(self, request: DataRequest, response: DataResponse):
+    def put(self, request: DataRequest, response: pd.DataFrame) -> None:
         """存储数据到缓存"""
-        if not response.success or response.data.empty:
+        if not (response is not None and not response.empty):
             return
         
         cache_key = self._generate_cache_key(request)
@@ -156,7 +156,7 @@ class CacheManager:
         logger.debug(f"从内存缓存获取数据: {cache_key}")
         return cache_item['response']
     
-    def _put_to_memory(self, cache_key: str, response: DataResponse, config: Dict[str, Any]):
+    def _put_to_memory(self, cache_key: str, response: pd.DataFrame, config: Dict[str, Any]):
         """存储数据到内存缓存"""
         # 检查内存缓存大小
         if len(self.memory_cache) >= self.max_memory_size:
@@ -196,7 +196,7 @@ class CacheManager:
             logger.error(f"从磁盘缓存读取数据失败: {e}")
             return None
     
-    def _put_to_disk(self, cache_key: str, response: DataResponse, config: Dict[str, Any]):
+    def _put_to_disk(self, cache_key: str, response: pd.DataFrame, config: Dict[str, Any]):
         """存储数据到磁盘缓存"""
         cache_file = self.disk_cache_dir / f"{cache_key}.pkl"
         expires_at = datetime.now() + config['ttl']
@@ -255,7 +255,7 @@ class CacheManager:
             logger.error(f"从数据库缓存读取数据失败: {e}")
             return None
     
-    def _put_to_database(self, cache_key: str, response: DataResponse, config: Dict[str, Any]):
+    def _put_to_database(self, cache_key: str, response: pd.DataFrame, config: Dict[str, Any]):
         """存储数据到数据库缓存"""
         expires_at = datetime.now() + config['ttl']
         
@@ -265,7 +265,7 @@ class CacheManager:
             metadata = {
                 'data_type': response.data_type.value,
                 'source': response.source,
-                'records': len(response.data)
+                'records': len(response)
             }
             metadata_json = json.dumps(metadata)
             
