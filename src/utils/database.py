@@ -330,6 +330,17 @@ class DatabaseManager:
             self._redis_client.close()
             logger.info("Redis 连接已关闭")
 
+    def query_dataframe(self, query):
+        """从 ClickHouse 查询数据并返回 DataFrame"""
+        try:
+            result = self.clickhouse_client.execute(query, with_column_types=True)
+            data, columns = result
+            df = pd.DataFrame(data, columns=[col[0] for col in columns])
+            return df
+        except Exception as e:
+            logger.error(f"ClickHouse 查询失败: {e}")
+            return pd.DataFrame()
+
 
 # 全局数据库管理器实例
 db_manager = DatabaseManager()
