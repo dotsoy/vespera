@@ -16,10 +16,10 @@ except ImportError:
     YAHOO_FINANCE_AVAILABLE = False
 
 try:
-    from .akshare_data_source import AkshareDataSource
+    from .akshare_data_source import AkShareDataSource
     AKSHARE_AVAILABLE = True
 except ImportError:
-    AkshareDataSource = None
+    AkShareDataSource = None
     AKSHARE_AVAILABLE = False
 
 from .data_source_manager import DataSourceManager
@@ -35,7 +35,7 @@ class DataSourceFactory:
         if YAHOO_FINANCE_AVAILABLE:
             self.data_source_classes[DataSourceType.YAHOO_FINANCE] = YahooFinanceDataSource
         if AKSHARE_AVAILABLE:
-            self.data_source_classes[DataSourceType.AKSHARE] = AkshareDataSource
+            self.data_source_classes[DataSourceType.AKSHARE] = AkShareDataSource
         
         self.default_configs = {}
         if YAHOO_FINANCE_AVAILABLE:
@@ -101,7 +101,11 @@ class DataSourceFactory:
         for config in source_configs:
             source_type = config.get('type')
             if isinstance(source_type, str):
-                source_type = DataSourceType[source_type]
+                try:
+                    source_type = DataSourceType[source_type]
+                except KeyError:
+                    logger.error(f"无效的数据源类型字符串: {source_type}")
+                    continue
             source_config = config.get('config', {})
             
             data_source = self.create_data_source(source_type, source_config)
@@ -150,7 +154,7 @@ class UnifiedDataService:
         logger.info("统一数据服务初始化完成")
     
     def get_data(self, request, preferred_sources: Optional[List[str]] = None,
-                 fallback: bool = True, merge_strategy: str = 'quality_based',
+                 fallback: bool = True, merge_strategy: str = 'first_success',
                  use_cache: bool = True):
         """
         获取数据（带缓存支持）
@@ -165,6 +169,8 @@ class UnifiedDataService:
         Returns:
             DataResponse: 数据响应
         """
+        from src.utils.database import get_db_manager
+        
         # 尝试从缓存获取
         if use_cache and self.cache_manager:
             cached_response = self.cache_manager.get(request)
@@ -181,8 +187,17 @@ class UnifiedDataService:
         )
         
         # 存储到缓存
-        if use_cache and self.cache_manager and response.success:
+        if use_cache and self.cache_manager and response is not None and not response.empty:
             self.cache_manager.put(request, response)
+        
+        # 如果获取成功且数据不为空，将数据保存到ClickHouse
+        if response is not None and not response.empty:
+            try:
+                db_manager = get_db_manager()
+                db_manager.insert_dataframe_to_clickhouse(response.data, 'daily_quotes')
+                logger.info(f"已将数据保存到ClickHouse，表名: daily_quotes")
+            except Exception as e:
+                logger.error(f"保存数据到ClickHouse失败: {e}")
         
         return response
     
