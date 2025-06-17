@@ -86,7 +86,7 @@ def get_holographic_data_for_stock(ts_code: str):
 
             # 存入ClickHouse
             try:
-                db_manager.insert_to_clickhouse(df_quotes, 'daily_quotes')
+                db_manager.insert_dataframe_to_clickhouse(df_quotes, 'daily_quotes')
                 logger.info(f"已更新 {ts_code} 的日线数据到ClickHouse")
             except Exception as e:
                 logger.warning(f"存储到ClickHouse失败: {e}")

@@ -207,6 +207,28 @@ class DatabaseManager:
     def insert_dataframe_to_clickhouse(self, df: pd.DataFrame, table_name: str) -> None:
         """将 DataFrame 插入到 ClickHouse 表"""
         try:
+            # 检查表是否存在，如果不存在则自动创建表
+            create_table_query = f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                trade_date      Date,
+                symbol          String,
+                open_price      Float64,
+                close_price     Float64,
+                high_price      Float64,
+                low_price       Float64,
+                vol             Int64,
+                amount          Float64,
+                amplitude       Float64,
+                pct_chg         Float64,
+                change_amount   Float64,
+                turnover_rate   Float64,
+                ts_code         String,
+                pre_close       Float64
+            )
+            ENGINE = MergeTree()
+            ORDER BY (ts_code, trade_date)
+            """
+            self.clickhouse_client.execute(create_table_query)
             self.clickhouse_client.insert_dataframe(f"INSERT INTO {table_name} VALUES", df)
             logger.info(f"成功插入 {len(df)} 条记录到 ClickHouse 表 {table_name}")
         except Exception as e:
