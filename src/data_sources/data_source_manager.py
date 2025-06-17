@@ -231,6 +231,8 @@ class DataSourceManager:
         
         # 首先从 ClickHouse 数据库中获取数据
         try:
+            from src.utils.database import DatabaseManager
+            db_manager = DatabaseManager()
             df = db_manager.query_dataframe(f"SELECT * FROM daily_quotes WHERE symbol = '{request.symbol}' AND trade_date BETWEEN '{request.start_date}' AND '{request.end_date}'")
             if not df.empty:
                 logger.info(f"从 ClickHouse 成功获取数据，记录数: {len(df)}")
