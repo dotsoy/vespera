@@ -99,7 +99,9 @@ class DataSourceFactory:
         
         # 创建并注册数据源
         for config in source_configs:
-            source_type = DataSourceType(config.get('type'))
+            source_type = config.get('type')
+            if isinstance(source_type, str):
+                source_type = DataSourceType[source_type]
             source_config = config.get('config', {})
             
             data_source = self.create_data_source(source_type, source_config)
@@ -117,7 +119,7 @@ class DataSourceFactory:
         configs = []
         if YAHOO_FINANCE_AVAILABLE:
             configs.append({
-                'type': DataSourceType.YAHOO_FINANCE.value,
+                'type': DataSourceType.YAHOO_FINANCE,
                 'config': {
                     'priority': 3,
                     'rate_limit': 2000
@@ -125,7 +127,7 @@ class DataSourceFactory:
             })
         if AKSHARE_AVAILABLE:
             configs.append({
-                'type': DataSourceType.AKSHARE.value,
+                'type': DataSourceType.AKSHARE,
                 'config': {
                     'priority': 5,
                     'rate_limit': 1000

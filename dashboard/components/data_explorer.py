@@ -87,9 +87,45 @@ def get_table_info(table_name: str):
         count_result = db_manager.execute_postgres_query(count_query)
         total_rows = count_result['total_rows'].iloc[0] if not count_result.empty else 0
         
+        # 表用途和字段定义的静态映射（可扩展为从数据库或配置文件加载）
+        table_metadata = {
+            'stock_data': {
+                'purpose': '存储股票历史数据，用于分析和回测',
+                'fields': {
+                    'date': '交易日期',
+                    'open': '开盘价',
+                    'high': '最高价',
+                    'low': '最低价',
+                    'close': '收盘价',
+                    'volume': '成交量',
+                    'amount': '成交额'
+                }
+            },
+            'index_data': {
+                'purpose': '存储指数历史数据，用于市场趋势分析',
+                'fields': {
+                    'date': '交易日期',
+                    'open': '开盘点位',
+                    'high': '最高点位',
+                    'low': '最低点位',
+                    'close': '收盘点位',
+                    'volume': '成交量',
+                    'amount': '成交额'
+                }
+            }
+            # 可添加更多表的元数据
+        }
+        
+        metadata = table_metadata.get(table_name, {
+            'purpose': '暂无该表的用途描述',
+            'fields': {row['column_name']: '暂无描述' for _, row in structure.iterrows()}
+        })
+        
         return {
             'structure': structure,
-            'total_rows': total_rows
+            'total_rows': total_rows,
+            'purpose': metadata['purpose'],
+            'field_definitions': metadata['fields']
         }
         
     except Exception as e:
@@ -277,6 +313,7 @@ def render_data_explorer_main():
         with col1:
             st.subheader(f"📊 表: {selected_table}")
             st.metric("总记录数", f"{table_info['total_rows']:,}")
+            st.markdown(f"**用途**: {table_info['purpose']}")
             
         with col2:
             st.subheader("🏗️ 表结构")
@@ -285,6 +322,17 @@ def render_data_explorer_main():
                     table_info['structure'][['column_name', 'data_type', 'is_nullable']],
                     use_container_width=True
                 )
+        
+        # 显示字段定义
+        st.subheader("📖 字段定义")
+        field_definitions = []
+        for col in table_info['structure']['column_name']:
+            definition = table_info['field_definitions'].get(col, '暂无描述')
+            field_definitions.append({
+                '字段名': col,
+                '定义': definition
+            })
+        st.dataframe(pd.DataFrame(field_definitions), use_container_width=True)
         
         # 数据加载选项
         st.subheader("⚙️ 数据加载选项")

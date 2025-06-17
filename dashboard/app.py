@@ -52,6 +52,11 @@ def main():
             "description": "多维度数据分析和可视化",
             "icon": "🔍"
         },
+        "📊 个股全息透视": {
+            "key": "stock_holographic_view",
+            "description": "以股票为核心，聚合多表信息进行深度分析",
+            "icon": "📊"
+        },
         "🎯 策略分析": {
             "key": "strategy_analysis",
             "description": "执行策略分析、生成交易信号、查看分析报告",
@@ -138,6 +143,9 @@ def main():
         render_system_status_main()
     elif selected_page_key == "data_explorer":
         render_data_explorer_main()
+    elif selected_page_key == "stock_holographic_view":
+        from dashboard.components.stock_holographic_view import render_stock_holographic_view_main
+        render_stock_holographic_view_main()
     elif selected_page_key == "strategy_analysis":
         render_strategy_analysis_main()
     elif selected_page_key == "backtest_visualization":
