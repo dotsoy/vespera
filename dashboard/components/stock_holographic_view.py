@@ -211,7 +211,8 @@ def render_interactive_chart(df_holographic, df_news):
                           high=df_holographic['high'],
                           low=df_holographic['low'],
                           close=df_holographic['close'],
-                          name='K线'),
+                          name='K线',
+                          hovertemplate='<b>日期</b>: %{x}<br><b>开盘</b>: %{open}<br><b>最高</b>: %{high}<br><b>最低</b>: %{low}<br><b>收盘</b>: %{close}<extra></extra>'),
             row=1, col=1
         )
         
