@@ -864,6 +864,58 @@ def render_data_export():
             st.error(f"数据导出失败: {e}")
 
 
+def render_database_browser():
+    """渲染数据库浏览器"""
+    st.header("🗄️ 数据库浏览器")
+    
+    if not DB_AVAILABLE:
+        st.error("❌ 数据库连接不可用，请检查配置")
+        return
+    
+    try:
+        db_manager = get_db_manager()
+        # 获取所有表名
+        query = """
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+        ORDER BY table_name
+        """
+        tables_df = db_manager.execute_postgres_query(query)
+        table_names = tables_df['table_name'].tolist()
+        
+        if not table_names:
+            st.warning("⚠️ 数据库中没有找到表")
+            return
+        
+        # 表选择
+        selected_table = st.selectbox("选择要查看的表", table_names)
+        
+        if selected_table:
+            # 获取表数据
+            with st.spinner(f"正在加载 {selected_table} 表数据..."):
+                table_data_query = f"SELECT * FROM {selected_table} LIMIT 1000"
+                table_data = db_manager.execute_postgres_query(table_data_query)
+            
+            if not table_data.empty:
+                st.subheader(f"表: {selected_table}")
+                st.write(f"显示前 1000 条记录（共 {len(table_data)} 条）")
+                
+                # 使用 Perspective-Python 展示数据
+                try:
+                    from perspective import PerspectiveWidget
+                    st.write("使用 Perspective-Python 展示数据")
+                    perspective_widget = PerspectiveWidget(table_data)
+                    st.components.v1.html(perspective_widget.to_html(), height=500, scrolling=True)
+                except ImportError:
+                    st.error("❌ Perspective-Python 库未安装，请安装后再使用此功能")
+                    st.dataframe(table_data, use_container_width=True)
+            else:
+                st.info(f"表 {selected_table} 中没有数据")
+    except Exception as e:
+        st.error(f"❌ 加载数据库表失败: {e}")
+
+
 def render_data_management_main():
     """渲染数据管理主面板"""
     # 数据概览
@@ -871,7 +923,7 @@ def render_data_management_main():
     st.markdown("---")
     
     # 创建标签页
-    tab1, tab2, tab3, tab4 = st.tabs(["🔄 数据更新", "🎯 股票选择", "📤 数据导出", "📊 数据质量"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔄 数据更新", "🎯 股票选择", "📤 数据导出", "📊 数据质量", "🗄️ 数据库浏览器"])
     
     with tab1:
         render_data_update()
@@ -894,3 +946,6 @@ def render_data_management_main():
         # - 异常值检查  
         # - 数据一致性检查
         # - 更新频率检查
+    
+    with tab5:
+        render_database_browser()
