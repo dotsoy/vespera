@@ -43,7 +43,7 @@ def load_stock_list():
 def get_holographic_data_for_stock(ts_code: str):
     """获取指定股票的所有关联数据，并融合成一张宽表"""
     if not DB_AVAILABLE:
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
     
     try:
         db_manager = get_db_manager()
@@ -59,40 +59,40 @@ def get_holographic_data_for_stock(ts_code: str):
         # 创建数据请求对象
         from src.data_sources.base_data_source import DataRequest, DataType
 
-        request = DataRequest(
-            data_type=DataType.DAILY_QUOTES,
-            symbol=ts_code,
-            start_date=datetime.strptime(start_date, '%Y%m%d'),
-            end_date=datetime.strptime(end_date, '%Y%m%d')
+        # 获取日线数据
+        df_quotes = data_service.get_data(
+            request=DataRequest(
+                data_type=DataType.DAILY_QUOTES,
+                symbol=ts_code,
+                start_date=start_date,
+                end_date=end_date
+            )
         )
-
-        # 拉取日线数据
-        response = data_service.get_data(request)
-        if response.success and response.data is not None:
-            df_quotes = response.data
-
-            # 标准化字段名称以匹配图表需求
-            df_quotes = df_quotes.rename(columns={
-                'trade_date': 'date',
-                'open_price': 'open',
-                'close_price': 'close',
-                'high_price': 'high',
-                'low_price': 'low',
-                'vol': 'volume'
-            })
-
-            # 确保日期格式正确
-            df_quotes['date'] = pd.to_datetime(df_quotes['date'])
-
-            # 存入ClickHouse
-            try:
-                db_manager.insert_dataframe_to_clickhouse(df_quotes, 'daily_quotes')
-                logger.info(f"已更新 {ts_code} 的日线数据到ClickHouse")
-            except Exception as e:
-                logger.warning(f"存储到ClickHouse失败: {e}")
+        if df_quotes is not None and not df_quotes.empty:
+            logger.info(f"成功获取 {ts_code} 的日线数据，记录数: {len(df_quotes)}")
         else:
             logger.warning(f"未能获取 {ts_code} 的日线数据")
-            df_quotes = pd.DataFrame()
+            return pd.DataFrame(), pd.DataFrame()
+
+        # 标准化字段名称以匹配图表需求
+        df_quotes = df_quotes.rename(columns={
+            'trade_date': 'date',
+            'open_price': 'open',
+            'close_price': 'close',
+            'high_price': 'high',
+            'low_price': 'low',
+            'vol': 'volume'
+        })
+
+        # 确保日期格式正确
+        df_quotes['date'] = pd.to_datetime(df_quotes['date'])
+
+        # 存入ClickHouse
+        try:
+            db_manager.insert_dataframe_to_clickhouse(df_quotes, 'daily_quotes')
+            logger.info(f"已更新 {ts_code} 的日线数据到ClickHouse")
+        except Exception as e:
+            logger.warning(f"存储到ClickHouse失败: {e}")
 
         # 尝试查询其他分析数据，如果表不存在则返回空DataFrame
         try:
