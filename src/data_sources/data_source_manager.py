@@ -1,11 +1,14 @@
 """
-数据源管理器 - 简化版本
-只管理AkShare数据源，提供简单的数据获取接口
+数据源管理器 - 增强版本
+支持多数据源负载均衡、频率限制管理、智能轮换等功能
 """
 from typing import Dict, List, Optional, Union, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import time
+import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import defaultdict, deque
 from loguru import logger
 
 from .base_data_source import (
@@ -16,12 +19,29 @@ from .base_data_source import (
 
 
 class DataSourceManager:
-    """数据源管理器 - 简化版本"""
+    """数据源管理器 - 增强版本"""
 
-    def __init__(self):
+    def __init__(self, max_workers: int = 3):
         self.data_sources: Dict[str, BaseDataSource] = {}
         self._cache: Dict[str, DataResponse] = {}
         self._cache_ttl = 300  # 缓存5分钟
+        self.max_workers = max_workers
+
+        # 频率限制管理
+        self._request_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
+        self._source_cooldown: Dict[str, datetime] = {}
+        self._source_weights: Dict[str, float] = {}  # 数据源权重
+        self._source_success_rate: Dict[str, float] = {}  # 成功率统计
+
+        # 负载均衡
+        self._round_robin_index: Dict[str, int] = defaultdict(int)
+        self._source_usage_count: Dict[str, int] = defaultdict(int)
+
+        # 配置参数
+        self.rate_limit_window = 60  # 频率限制窗口（秒）
+        self.max_requests_per_window = 10  # 每个窗口最大请求数
+        self.cooldown_duration = 30  # 冷却时间（秒）
+        self.min_success_rate = 0.7  # 最小成功率阈值
         
     def register_data_source(self, data_source: BaseDataSource) -> bool:
         """
@@ -84,17 +104,101 @@ class DataSourceManager:
             try:
                 # 检查数据源状态
                 status = source.check_availability()
+                logger.info(f"数据源 {name} 状态: {status}")
                 if status in [DataSourceStatus.AVAILABLE, DataSourceStatus.LIMITED]:
+                    supported_types = source.get_supported_data_types()
+                    logger.info(f"数据源 {name} 支持的数据类型: {supported_types}")
                     # 检查是否支持该数据类型
-                    if data_type in source.get_supported_data_types():
+                    if data_type in supported_types:
                         available_sources.append(name)
+                    else:
+                        logger.warning(f"数据源 {name} 不支持数据类型 {data_type}")
+                else:
+                    logger.warning(f"数据源 {name} 不可用，状态: {status}")
             except Exception as e:
                 logger.warning(f"检查数据源 {name} 可用性失败: {e}")
         
-        # 按优先级排序
-        available_sources.sort(key=lambda x: self.data_sources[x].config.get('priority', 1))
-        
+        # 智能排序：综合考虑优先级、成功率、使用频率
+        available_sources.sort(key=lambda x: self._calculate_source_score(x), reverse=True)
+        logger.info(f"可用数据源列表 for {data_type}: {available_sources}")
+
         return available_sources
+
+    def _calculate_source_score(self, source_name: str) -> float:
+        """计算数据源评分，用于智能选择"""
+        source = self.data_sources[source_name]
+
+        # 基础优先级
+        priority_score = source.config.get('priority', 1) * 10
+
+        # 成功率评分
+        success_rate = self._source_success_rate.get(source_name, 1.0)
+        success_score = success_rate * 20
+
+        # 使用频率惩罚（避免过度使用单一数据源）
+        usage_count = self._source_usage_count.get(source_name, 0)
+        total_usage = sum(self._source_usage_count.values()) or 1
+        usage_ratio = usage_count / total_usage
+        usage_penalty = usage_ratio * 10  # 使用越多，惩罚越大
+
+        # 冷却时间惩罚
+        cooldown_penalty = 0
+        if source_name in self._source_cooldown:
+            cooldown_remaining = (self._source_cooldown[source_name] - datetime.now()).total_seconds()
+            if cooldown_remaining > 0:
+                cooldown_penalty = 50  # 冷却期间大幅降低评分
+
+        # 频率限制检查
+        rate_limit_penalty = 0
+        if self._is_rate_limited(source_name):
+            rate_limit_penalty = 30
+
+        final_score = priority_score + success_score - usage_penalty - cooldown_penalty - rate_limit_penalty
+
+        logger.debug(f"数据源 {source_name} 评分: {final_score:.2f} "
+                    f"(优先级:{priority_score}, 成功率:{success_score:.2f}, "
+                    f"使用惩罚:{usage_penalty:.2f}, 冷却惩罚:{cooldown_penalty}, "
+                    f"频率惩罚:{rate_limit_penalty})")
+
+        return final_score
+
+    def _is_rate_limited(self, source_name: str) -> bool:
+        """检查数据源是否达到频率限制"""
+        now = datetime.now()
+        history = self._request_history[source_name]
+
+        # 清理过期记录
+        cutoff_time = now - timedelta(seconds=self.rate_limit_window)
+        while history and history[0] < cutoff_time:
+            history.popleft()
+
+        return len(history) >= self.max_requests_per_window
+
+    def _record_request(self, source_name: str, success: bool):
+        """记录请求历史和成功率"""
+        now = datetime.now()
+
+        # 记录请求时间
+        self._request_history[source_name].append(now)
+
+        # 更新使用计数
+        self._source_usage_count[source_name] += 1
+
+        # 更新成功率
+        if source_name not in self._source_success_rate:
+            self._source_success_rate[source_name] = 1.0 if success else 0.0
+        else:
+            # 使用指数移动平均更新成功率
+            alpha = 0.1  # 平滑因子
+            current_rate = self._source_success_rate[source_name]
+            new_rate = alpha * (1.0 if success else 0.0) + (1 - alpha) * current_rate
+            self._source_success_rate[source_name] = new_rate
+
+        # 如果失败且成功率过低，设置冷却时间
+        if not success and self._source_success_rate[source_name] < self.min_success_rate:
+            self._source_cooldown[source_name] = now + timedelta(seconds=self.cooldown_duration)
+            logger.warning(f"数据源 {source_name} 成功率过低 ({self._source_success_rate[source_name]:.2f})，"
+                          f"进入冷却期 {self.cooldown_duration} 秒")
     
     def get_data(self, request: DataRequest, 
                  preferred_sources: Optional[List[str]] = None,
@@ -112,6 +216,28 @@ class DataSourceManager:
         Returns:
             DataResponse: 数据响应结果
         """
+        # 记录请求日志
+        request_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        request_details = {
+            'data_type': request.data_type,
+            'symbol': getattr(request, 'symbol', None),
+            'symbols': getattr(request, 'symbols', None),
+            'start_date': getattr(request, 'start_date', None),
+            'end_date': getattr(request, 'end_date', None),
+            'fields': getattr(request, 'fields', None),
+            'extra_params': getattr(request, 'extra_params', None)
+        }
+        logger.info(f"接口请求 - 时间: {request_time}, 详情: {request_details}")
+        
+        # 首先从 ClickHouse 数据库中获取数据
+        try:
+            df = db_manager.query_dataframe(f"SELECT * FROM daily_quotes WHERE symbol = '{request.symbol}' AND trade_date BETWEEN '{request.start_date}' AND '{request.end_date}'")
+            if not df.empty:
+                logger.info(f"从 ClickHouse 成功获取数据，记录数: {len(df)}")
+                return df
+        except Exception as e:
+            logger.warning(f"从 ClickHouse 获取数据失败: {e}")
+
         # 检查缓存
         cache_key = self._generate_cache_key(request)
         cached_response = self._get_from_cache(cache_key)
@@ -132,6 +258,7 @@ class DataSourceManager:
             sources_to_try = available_sources
         
         if not sources_to_try:
+            logger.error(f"没有可用的数据源支持 {request.data_type}")
             return DataResponse(
                 data=pd.DataFrame(),
                 source="none",
@@ -141,6 +268,8 @@ class DataSourceManager:
                 error_message=f"没有可用的数据源支持 {request.data_type}"
             )
         
+        logger.info(f"尝试数据源: {sources_to_try}")
+        
         # 根据合并策略获取数据
         if merge_strategy == 'first_success':
             return self._get_data_first_success(request, sources_to_try, cache_key)
@@ -149,39 +278,75 @@ class DataSourceManager:
         elif merge_strategy == 'validate':
             return self._get_data_validate(request, sources_to_try, cache_key)
         else:
+            logger.error(f"不支持的合并策略: {merge_strategy}")
             raise ValueError(f"不支持的合并策略: {merge_strategy}")
     
     def _get_data_first_success(self, request: DataRequest, sources: List[str], cache_key: str) -> DataResponse:
-        """第一个成功策略：使用第一个成功返回数据的数据源"""
+        """第一个成功策略：使用第一个成功返回数据的数据源（带智能选择）"""
+        attempted_sources = []
+
         for source_name in sources:
-            try:
-                source = self.data_sources[source_name]
-                logger.info(f"尝试从数据源 {source_name} 获取数据")
-                
-                response = source.fetch_data(request)
-                
-                if response.success and not response.data.empty:
-                    logger.info(f"从数据源 {source_name} 成功获取数据")
-                    self._save_to_cache(cache_key, response)
-                    return response
-                else:
-                    logger.warning(f"数据源 {source_name} 返回空数据或失败")
-                    
-            except RateLimitError as e:
-                logger.warning(f"数据源 {source_name} 请求频率超限: {e}")
-                continue
-            except Exception as e:
-                logger.error(f"从数据源 {source_name} 获取数据失败: {e}")
-                continue
-        
+            # 检查是否在冷却期或频率限制
+            if self._is_source_available(source_name):
+                attempted_sources.append(source_name)
+
+                try:
+                    source = self.data_sources[source_name]
+                    logger.info(f"尝试从数据源 {source_name} 获取数据 (评分: {self._calculate_source_score(source_name):.2f})")
+
+                    start_time = time.time()
+                    response = source.fetch_data(request)
+                    end_time = time.time()
+
+                    # 记录请求结果
+                    success = response.success and not response.data.empty
+                    self._record_request(source_name, success)
+
+                    if success:
+                        logger.info(f"从数据源 {source_name} 成功获取数据 (耗时: {end_time - start_time:.2f}s)")
+                        self._save_to_cache(cache_key, response)
+                        return response
+                    else:
+                        logger.warning(f"数据源 {source_name} 返回空数据或失败")
+
+                except RateLimitError as e:
+                    logger.warning(f"数据源 {source_name} 请求频率超限: {e}")
+                    self._record_request(source_name, False)
+                    # 设置临时冷却
+                    self._source_cooldown[source_name] = datetime.now() + timedelta(seconds=60)
+                    continue
+                except Exception as e:
+                    logger.error(f"从数据源 {source_name} 获取数据失败: {e}")
+                    self._record_request(source_name, False)
+                    continue
+            else:
+                logger.debug(f"跳过数据源 {source_name} (不可用)")
+
+        logger.error(f"所有数据源都获取失败，尝试过的数据源: {attempted_sources}")
         return DataResponse(
             data=pd.DataFrame(),
             source="failed",
             data_type=request.data_type,
             timestamp=datetime.now(),
             success=False,
-            error_message="所有数据源都获取失败"
+            error_message=f"所有数据源都获取失败，尝试过: {', '.join(attempted_sources)}"
         )
+
+    def _is_source_available(self, source_name: str) -> bool:
+        """检查数据源是否可用（不在冷却期且未达到频率限制）"""
+        # 检查冷却期
+        if source_name in self._source_cooldown:
+            if datetime.now() < self._source_cooldown[source_name]:
+                return False
+            else:
+                # 冷却期结束，移除记录
+                del self._source_cooldown[source_name]
+
+        # 检查频率限制
+        if self._is_rate_limited(source_name):
+            return False
+
+        return True
     
     def _get_data_merge(self, request: DataRequest, sources: List[str], cache_key: str) -> DataResponse:
         """合并策略：从多个数据源获取数据并合并"""
