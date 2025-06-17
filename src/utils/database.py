@@ -109,9 +109,8 @@ class DatabaseManager:
     def execute_postgres_command(self, command: str, params: Optional[Dict] = None) -> None:
         """执行 PostgreSQL 命令（INSERT, UPDATE, DELETE）"""
         try:
-            with self.postgres_engine.connect() as conn:
+            with self.postgres_engine.begin() as conn:
                 conn.execute(text(command), params or {})
-                conn.commit()
         except Exception as e:
             logger.error(f"PostgreSQL 命令执行失败: {e}")
             raise

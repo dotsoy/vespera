@@ -1,28 +1,25 @@
 """
-数据源管理器
-负责管理多个数据源，提供统一的数据获取接口
+数据源管理器 - 简化版本
+只管理AkShare数据源，提供简单的数据获取接口
 """
 from typing import Dict, List, Optional, Union, Any
 from datetime import datetime
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 from loguru import logger
 
 from .base_data_source import (
     BaseDataSource, DataRequest, DataResponse, DataType,
     DataSourceType, DataSourceStatus, DataSourceInfo,
-    DataSourceError, RateLimitError, DataNotAvailableError
+    DataSourceError, RateLimitError
 )
-from .data_fusion_engine import DataFusionEngine, FusionStrategy, ValidationLevel
 
 
 class DataSourceManager:
-    """数据源管理器"""
-    
-    def __init__(self, max_workers: int = 3):
+    """数据源管理器 - 简化版本"""
+
+    def __init__(self):
         self.data_sources: Dict[str, BaseDataSource] = {}
-        self.max_workers = max_workers
         self._cache: Dict[str, DataResponse] = {}
         self._cache_ttl = 300  # 缓存5分钟
         

@@ -1,12 +1,11 @@
 """
-数据管理组件
+数据管理组件 - 简化版本，只支持AkShare数据源
 """
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
-import asyncio
 import sys
 from pathlib import Path
 
@@ -26,7 +25,7 @@ except ImportError as e:
     logger.warning(f"数据库模块导入失败: {e}")
     DB_AVAILABLE = False
 
-# 数据源客户端
+# AkShare数据源
 try:
     from src.data_sources.akshare_data_source import AkShareDataSource
     AKSHARE_AVAILABLE = True
@@ -34,25 +33,19 @@ except ImportError as e:
     logger.warning(f"AkShare数据源导入失败: {e}")
     AKSHARE_AVAILABLE = False
 
-# Alpha Vantage已移除
-
-def execute_real_data_update(data_source, update_type, target_date, update_scope, selected_stocks):
-    """执行真实的数据更新"""
+def execute_akshare_data_update(update_type, target_date, update_scope, selected_stocks):
+    """执行AkShare数据更新 - 简化版本"""
 
     # 创建进度显示区域
     progress_container = st.container()
     log_container = st.container()
 
     with progress_container:
-        st.info(f"🔄 正在从 {data_source} 更新数据...")
+        st.info("🔄 正在从 AkShare 更新数据...")
 
         # 总进度条
         total_progress = st.progress(0)
         total_status = st.empty()
-
-        # 详细进度
-        detail_progress = st.progress(0)
-        detail_status = st.empty()
 
     with log_container:
         st.subheader("📋 更新日志")
@@ -61,42 +54,33 @@ def execute_real_data_update(data_source, update_type, target_date, update_scope
     logs = []
 
     try:
-        # 1. 初始化数据源客户端
+        # 1. 初始化AkShare客户端
         total_progress.progress(5)
-        total_status.text("初始化数据源连接...")
-        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 尝试连接 {data_source}...")
+        total_status.text("初始化AkShare连接...")
+        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 初始化AkShare数据源...")
         log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
 
-        client = None
+        if not AKSHARE_AVAILABLE:
+            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AkShare模块未安装或导入失败")
+            st.error("❌ AkShare数据源不可用：模块未安装或导入失败")
+            return
 
-        # 尝试不同的数据源
-        if data_source == "AkShare":
-            if not AKSHARE_AVAILABLE:
-                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AkShare模块未安装或导入失败")
-                st.error("❌ AkShare数据源不可用：模块未安装或导入失败")
+        try:
+            client = AkShareDataSource()
+            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ AkShare数据源初始化成功")
+
+            # 测试连接
+            if client.initialize():
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ AkShare连接测试成功")
+            else:
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AkShare连接测试失败")
+                st.error("❌ AkShare连接测试失败，请检查网络连接")
                 return
 
-            try:
-                client = AkShareDataSource()
-                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ AkShare数据源初始化成功")
-
-                # 测试连接
-                if client.initialize():
-                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ AkShare连接测试成功")
-                else:
-                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AkShare连接测试失败")
-                    st.error("❌ AkShare数据源失败：连接测试失败，请检查网络连接")
-                    return
-
-            except Exception as e:
-                error_msg = str(e)
-                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AkShare连接失败: {error_msg}")
-                st.error(f"❌ AkShare数据源失败：连接错误 - {error_msg}")
-                return
-
-        else:
-            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 不支持的数据源: {data_source}")
-            st.error(f"❌ 不支持的数据源: {data_source}")
+        except Exception as e:
+            error_msg = str(e)
+            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AkShare连接失败: {error_msg}")
+            st.error(f"❌ AkShare连接失败: {error_msg}")
             return
 
         # 2. 更新股票基础信息
@@ -107,28 +91,22 @@ def execute_real_data_update(data_source, update_type, target_date, update_scope
 
         stock_basic_df = None
         try:
-            if data_source == "AkShare":
-                # 使用AkShare获取股票基础信息
-                from src.data_sources.base_data_source import DataRequest, DataType
-                request = DataRequest(data_type=DataType.STOCK_BASIC)
-                response = client.fetch_data(request)
+            # 使用AkShare获取股票基础信息
+            from src.data_sources.base_data_source import DataRequest, DataType
+            request = DataRequest(data_type=DataType.STOCK_BASIC)
+            response = client.fetch_data(request)
 
-                if response.success and not response.data.empty:
-                    stock_basic_df = response.data
-                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 从AkShare获取到 {len(stock_basic_df)} 只股票基础信息")
-                else:
-                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AkShare获取股票基础信息失败: {response.error_message}")
-                    st.error(f"❌ AkShare获取股票基础信息失败: {response.error_message}")
-                    return
-
+            if response.success and not response.data.empty:
+                stock_basic_df = response.data
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 从AkShare获取到 {len(stock_basic_df)} 只股票基础信息")
             else:
-                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 不支持的数据源: {data_source}")
-                st.error(f"❌ 不支持的数据源: {data_source}")
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AkShare获取股票基础信息失败: {response.error_message}")
+                st.error(f"❌ AkShare获取股票基础信息失败: {response.error_message}")
                 return
 
             if stock_basic_df is None or stock_basic_df.empty:
                 logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 未获取到股票基础信息")
-                st.error("❌ 未获取到股票基础信息，请检查数据源配置")
+                st.error("❌ 未获取到股票基础信息，请检查网络连接")
                 return
 
             # 保存到数据库
@@ -260,54 +238,49 @@ def execute_real_data_update(data_source, update_type, target_date, update_scope
 
             quotes_df = None
             try:
-                if data_source == "AkShare":
-                    # 使用AkShare批量获取行情数据
-                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 尝试从AkShare获取 {trade_date} 行情数据...")
+                # 使用AkShare批量获取行情数据
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 尝试从AkShare获取 {trade_date} 行情数据...")
 
-                    from src.data_sources.base_data_source import DataRequest, DataType
-                    from datetime import datetime as dt
+                from src.data_sources.base_data_source import DataRequest, DataType
+                from datetime import datetime as dt
 
-                    # 将trade_date转换为datetime对象
-                    start_date = dt.strptime(trade_date, '%Y%m%d')
-                    end_date = start_date
+                # 将trade_date转换为datetime对象
+                start_date = dt.strptime(trade_date, '%Y%m%d')
+                end_date = start_date
 
-                    all_quotes = []
-                    for i, stock_code in enumerate(stock_list[:10]):  # 限制数量以避免超时
-                        try:
-                            request = DataRequest(
-                                data_type=DataType.DAILY_QUOTES,
-                                symbol=stock_code,
-                                start_date=start_date,
-                                end_date=end_date
-                            )
-                            response = client.fetch_data(request)
+                all_quotes = []
+                for i, stock_code in enumerate(stock_list[:10]):  # 限制数量以避免超时
+                    try:
+                        request = DataRequest(
+                            data_type=DataType.DAILY_QUOTES,
+                            symbol=stock_code,
+                            start_date=start_date,
+                            end_date=end_date
+                        )
+                        response = client.fetch_data(request)
 
-                            if response.success and not response.data.empty:
-                                all_quotes.append(response.data)
+                        if response.success and not response.data.empty:
+                            all_quotes.append(response.data)
 
-                            if i % 5 == 0:  # 每5只股票记录一次进度
-                                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 已处理 {i+1}/{min(len(stock_list), 10)} 只股票")
-                                log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
+                        if i % 5 == 0:  # 每5只股票记录一次进度
+                            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 已处理 {i+1}/{min(len(stock_list), 10)} 只股票")
+                            log_area.text_area("", value="\n".join(logs), height=300, disabled=True)
 
-                        except Exception as e:
-                            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ 获取{stock_code}行情失败: {e}")
+                    except Exception as e:
+                        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ 获取{stock_code}行情失败: {e}")
 
-                    if all_quotes:
-                        quotes_df = pd.concat(all_quotes, ignore_index=True)
-                        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 从AkShare获取到 {len(quotes_df)} 条行情数据")
-                    else:
-                        logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AkShare未获取到任何行情数据")
-                        continue
-
+                if all_quotes:
+                    quotes_df = pd.concat(all_quotes, ignore_index=True)
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 从AkShare获取到 {len(quotes_df)} 条行情数据")
                 else:
-                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 不支持的数据源: {data_source}")
+                    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ AkShare未获取到任何行情数据")
                     continue
 
                 if quotes_df is None or quotes_df.empty:
                     logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ {trade_date}: 未获取到行情数据（可能是非交易日）")
                     continue
 
-                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 从{data_source}获取到 {len(quotes_df)} 条 {trade_date} 行情数据")
+                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 从AkShare获取到 {len(quotes_df)} 条 {trade_date} 行情数据")
 
                 # 保存到数据库
                 if DB_AVAILABLE:
@@ -392,7 +365,7 @@ def execute_real_data_update(data_source, update_type, target_date, update_scope
             with col3:
                 st.metric("总记录数", f"{total_records:,}")
             with col4:
-                st.metric("数据源", data_source)
+                st.metric("数据源", "AkShare")
 
     except Exception as e:
         logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ 数据更新失败: {e}")
@@ -445,9 +418,8 @@ def get_stock_list():
             try:
                 db_manager = get_db_manager()
                 query = """
-                SELECT ts_code, symbol, name, area, industry, market, list_date
+                SELECT ts_code, symbol, name, market, exchange, list_status
                 FROM stock_basic
-                WHERE is_hs = 'Y' AND market IN ('主板', '创业板', '科创板')
                 ORDER BY ts_code
                 """
                 df = db_manager.execute_postgres_query(query)
@@ -456,10 +428,10 @@ def get_stock_list():
                     logger.info(f"从数据库获取到 {len(df)} 只股票数据")
                     return df
                 else:
-                    logger.warning("数据库中无股票数据，使用模拟数据")
+                    logger.warning("数据库中无股票数据")
 
             except Exception as e:
-                logger.error(f"数据库查询失败: {e}，使用模拟数据")
+                logger.error(f"数据库查询失败: {e}")
 
         # 备选方案：返回空DataFrame，提示用户导入数据
         logger.warning("数据库中无股票数据，请先导入股票基础信息")
@@ -504,7 +476,7 @@ def get_latest_data_status():
                     }
 
             except Exception as e:
-                logger.error(f"数据库查询失败: {e}，使用模拟数据状态")
+                logger.error(f"数据库查询失败: {e}")
 
         # 备选方案：返回空状态，提示用户导入数据
         logger.warning("数据库中无行情数据，请先导入股票数据")
@@ -578,33 +550,28 @@ def render_data_overview():
 
 
 def render_data_update():
-    """渲染数据更新功能"""
+    """渲染数据更新功能 - 简化版本，只支持AkShare"""
     st.header("🔄 数据更新")
-    
-    # 数据源选择
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📡 数据源配置")
-        
-        # 构建可用数据源列表
-        available_sources = []
-        if AKSHARE_AVAILABLE:
-            available_sources.append("AkShare (推荐)")
-        available_sources.append("模拟数据")
 
-        data_source = st.selectbox(
-            "选择数据源",
-            available_sources,
-            index=0
-        )
-        
+    # 显示数据源状态
+    if AKSHARE_AVAILABLE:
+        st.success("✅ AkShare数据源可用")
+    else:
+        st.error("❌ AkShare数据源不可用，请检查安装")
+        return
+
+    # 更新配置
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("📡 更新配置")
+
         update_type = st.selectbox(
             "更新类型",
             ["增量更新", "全量更新", "指定日期"],
             index=0
         )
-        
+
         if update_type == "指定日期":
             target_date = st.date_input(
                 "目标日期",
@@ -642,8 +609,8 @@ def render_data_update():
 
     with col1:
         if st.button("🚀 开始更新", type="primary"):
-            execute_real_data_update(
-                data_source, update_type, target_date,
+            execute_akshare_data_update(
+                update_type, target_date,
                 update_scope, selected_stocks
             )
     
@@ -730,14 +697,14 @@ def render_stock_selector():
         selected_market = st.selectbox("市场", markets)
     
     with col2:
-        # 行业筛选
-        industries = ['全部'] + stock_list['industry'].unique().tolist()
-        selected_industry = st.selectbox("行业", industries)
+        # 交易所筛选
+        exchanges = ['全部'] + stock_list['exchange'].unique().tolist()
+        selected_exchange = st.selectbox("交易所", exchanges)
     
     with col3:
-        # 地区筛选
-        areas = ['全部'] + stock_list['area'].unique().tolist()
-        selected_area = st.selectbox("地区", areas)
+        # 上市状态筛选
+        statuses = ['全部'] + stock_list['list_status'].unique().tolist()
+        selected_status = st.selectbox("上市状态", statuses)
     
     # 应用筛选
     filtered_stocks = stock_list.copy()
@@ -745,11 +712,11 @@ def render_stock_selector():
     if selected_market != '全部':
         filtered_stocks = filtered_stocks[filtered_stocks['market'] == selected_market]
     
-    if selected_industry != '全部':
-        filtered_stocks = filtered_stocks[filtered_stocks['industry'] == selected_industry]
+    if selected_exchange != '全部':
+        filtered_stocks = filtered_stocks[filtered_stocks['exchange'] == selected_exchange]
     
-    if selected_area != '全部':
-        filtered_stocks = filtered_stocks[filtered_stocks['area'] == selected_area]
+    if selected_status != '全部':
+        filtered_stocks = filtered_stocks[filtered_stocks['list_status'] == selected_status]
     
     # 搜索框
     search_term = st.text_input("🔍 搜索股票（代码或名称）")
@@ -789,7 +756,7 @@ def render_stock_selector():
             st.subheader("📋 选中的股票")
             selected_df = display_stocks[display_stocks['ts_code'].isin(selected_stocks)]
             st.dataframe(
-                selected_df[['ts_code', 'name', 'industry', 'market', 'area']],
+                selected_df[['ts_code', 'name', 'market', 'exchange', 'list_status']],
                 use_container_width=True
             )
             
@@ -797,7 +764,7 @@ def render_stock_selector():
         else:
             # 显示筛选结果表格
             st.dataframe(
-                display_stocks[['ts_code', 'name', 'industry', 'market', 'area']],
+                display_stocks[['ts_code', 'name', 'market', 'exchange', 'list_status']],
                 use_container_width=True
             )
     

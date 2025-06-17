@@ -8,23 +8,9 @@ from loguru import logger
 from .base_data_source import BaseDataSource, DataSourceType
 from .akshare_data_source import AkShareDataSource
 
-# 可选导入，避免依赖问题
-try:
-    from .yahoo_finance_data_source import YahooFinanceDataSource
-    YAHOO_FINANCE_AVAILABLE = True
-except ImportError:
-    YahooFinanceDataSource = None
-    YAHOO_FINANCE_AVAILABLE = False
-
-try:
-    from .alpha_vantage_data_source import AlphaVantageDataSource
-    ALPHA_VANTAGE_AVAILABLE = True
-except ImportError:
-    AlphaVantageDataSource = None
-    ALPHA_VANTAGE_AVAILABLE = False
+# 简化版本，只支持AkShare
 from .data_source_manager import DataSourceManager
 from .cache_manager import CacheManager
-from config.settings import data_settings
 
 
 class DataSourceFactory:
@@ -35,12 +21,6 @@ class DataSourceFactory:
             DataSourceType.AKSHARE: AkShareDataSource
         }
 
-        # 添加可选数据源
-        if YAHOO_FINANCE_AVAILABLE:
-            self.data_source_classes[DataSourceType.YAHOO_FINANCE] = YahooFinanceDataSource
-        if ALPHA_VANTAGE_AVAILABLE:
-            self.data_source_classes[DataSourceType.ALPHA_VANTAGE] = AlphaVantageDataSource
-
         self.default_configs = {
             DataSourceType.AKSHARE: {
                 'priority': 1,
@@ -48,20 +28,6 @@ class DataSourceFactory:
                 'description': 'AkShare免费A股数据接口'
             }
         }
-
-        # 添加可选数据源配置
-        if YAHOO_FINANCE_AVAILABLE:
-            self.default_configs[DataSourceType.YAHOO_FINANCE] = {
-                'priority': 3,
-                'rate_limit': 2000,
-                'description': 'Yahoo Finance免费金融数据接口'
-            }
-        if ALPHA_VANTAGE_AVAILABLE:
-            self.default_configs[DataSourceType.ALPHA_VANTAGE] = {
-                'priority': 4,
-                'rate_limit': 5,
-                'description': 'Alpha Vantage金融数据API'
-            }
     
     def create_data_source(self, source_type: DataSourceType, 
                           config: Optional[Dict[str, Any]] = None) -> Optional[BaseDataSource]:
@@ -88,8 +54,6 @@ class DataSourceFactory:
             source_class = self.data_source_classes[source_type]
 
             if source_type == DataSourceType.AKSHARE:
-                return source_class(final_config)
-            elif source_type == DataSourceType.YAHOO_FINANCE and YAHOO_FINANCE_AVAILABLE:
                 return source_class(final_config)
 
         except Exception as e:
@@ -131,25 +95,14 @@ class DataSourceFactory:
         """获取默认数据源配置"""
         configs = []
 
-        # AkShare配置（免费，如果启用）
-        if hasattr(data_settings, 'akshare_enabled') and data_settings.akshare_enabled:
-            configs.append({
-                'type': DataSourceType.AKSHARE.value,
-                'config': {
-                    'priority': 1,
-                    'rate_limit': 1000
-                }
-            })
-
-        # Yahoo Finance配置（免费，如果可用）
-        if YAHOO_FINANCE_AVAILABLE:
-            configs.append({
-                'type': DataSourceType.YAHOO_FINANCE.value,
-                'config': {
-                    'priority': 2,
-                    'rate_limit': 2000
-                }
-            })
+        # AkShare配置（默认启用）
+        configs.append({
+            'type': DataSourceType.AKSHARE.value,
+            'config': {
+                'priority': 1,
+                'rate_limit': 1000
+            }
+        })
 
         return configs
 

@@ -12,7 +12,7 @@ sys.path.insert(0, str(project_root))
 # 导入新的组件
 from dashboard.components.system_status import render_system_status_main
 from dashboard.components.data_management import render_data_management_main
-from dashboard.components.data_source_manager import render_data_source_manager_main
+# 数据源管理功能已移除
 from dashboard.components.strategy_analysis import render_strategy_analysis_main
 from dashboard.components.backtest_visualization import render_backtest_visualization_main
 
@@ -53,11 +53,7 @@ def main():
             "description": "数据更新、股票选择、数据导出等功能",
             "icon": "📊"
         },
-        "📡 数据源管理": {
-            "key": "data_source_manager",
-            "description": "管理数据源、监控拉取状态、配置API等",
-            "icon": "📡"
-        },
+
         "🎯 策略分析": {
             "key": "strategy_analysis",
             "description": "执行策略分析、生成交易信号、查看分析报告",
@@ -144,8 +140,7 @@ def main():
         render_system_status_main()
     elif selected_page_key == "data_management":
         render_data_management_main()
-    elif selected_page_key == "data_source_manager":
-        render_data_source_manager_main()
+# 数据源管理功能已移除
     elif selected_page_key == "strategy_analysis":
         render_strategy_analysis_main()
     elif selected_page_key == "backtest_visualization":
