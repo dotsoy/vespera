@@ -233,7 +233,10 @@ class DataSourceManager:
         try:
             from src.utils.database import DatabaseManager
             db_manager = DatabaseManager()
-            df = db_manager.query_dataframe(f"SELECT * FROM daily_quotes WHERE symbol = '{request.symbol}' AND trade_date BETWEEN '{request.start_date}' AND '{request.end_date}'")
+            # 格式化日期为 YYYY-MM-DD
+            start_date = request.start_date.strftime('%Y-%m-%d')
+            end_date = request.end_date.strftime('%Y-%m-%d')
+            df = db_manager.query_dataframe(f"SELECT * FROM daily_quotes WHERE symbol = '{request.symbol}' AND trade_date BETWEEN '{start_date}' AND '{end_date}'")
             if not df.empty:
                 logger.info(f"从 ClickHouse 成功获取数据，记录数: {len(df)}")
                 return df
