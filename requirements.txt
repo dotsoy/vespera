@@ -46,6 +46,7 @@ ipykernel
 matplotlib
 seaborn
 mplfinance
+perspective-python
 
 # 工具库
 python-dotenv

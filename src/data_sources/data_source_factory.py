@@ -6,28 +6,50 @@ from typing import Dict, Any, Optional, List
 from loguru import logger
 
 from .base_data_source import BaseDataSource, DataSourceType
-from .akshare_data_source import AkShareDataSource
 
-# 简化版本，只支持AkShare
+# 可选导入，避免依赖问题
+try:
+    from .yahoo_finance_data_source import YahooFinanceDataSource
+    YAHOO_FINANCE_AVAILABLE = True
+except ImportError:
+    YahooFinanceDataSource = None
+    YAHOO_FINANCE_AVAILABLE = False
+
+try:
+    from .akshare_data_source import AkshareDataSource
+    AKSHARE_AVAILABLE = True
+except ImportError:
+    AkshareDataSource = None
+    AKSHARE_AVAILABLE = False
+
 from .data_source_manager import DataSourceManager
 from .cache_manager import CacheManager
+from config.settings import data_settings
 
 
 class DataSourceFactory:
     """数据源工厂"""
     
     def __init__(self):
-        self.data_source_classes = {
-            DataSourceType.AKSHARE: AkShareDataSource
-        }
-
-        self.default_configs = {
-            DataSourceType.AKSHARE: {
-                'priority': 1,
-                'rate_limit': 1000,
-                'description': 'AkShare免费A股数据接口'
+        self.data_source_classes = {}
+        if YAHOO_FINANCE_AVAILABLE:
+            self.data_source_classes[DataSourceType.YAHOO_FINANCE] = YahooFinanceDataSource
+        if AKSHARE_AVAILABLE:
+            self.data_source_classes[DataSourceType.AKSHARE] = AkshareDataSource
+        
+        self.default_configs = {}
+        if YAHOO_FINANCE_AVAILABLE:
+            self.default_configs[DataSourceType.YAHOO_FINANCE] = {
+                'priority': 3,
+                'rate_limit': 2000,
+                'description': 'Yahoo Finance免费金融数据接口'
             }
-        }
+        if AKSHARE_AVAILABLE:
+            self.default_configs[DataSourceType.AKSHARE] = {
+                'priority': 5,
+                'rate_limit': 1000,
+                'description': 'Akshare免费金融数据接口'
+            }
     
     def create_data_source(self, source_type: DataSourceType, 
                           config: Optional[Dict[str, Any]] = None) -> Optional[BaseDataSource]:
@@ -53,8 +75,7 @@ class DataSourceFactory:
         try:
             source_class = self.data_source_classes[source_type]
 
-            if source_type == DataSourceType.AKSHARE:
-                return source_class(final_config)
+            return source_class(final_config)
 
         except Exception as e:
             logger.error(f"创建数据源 {source_type} 失败: {e}")
@@ -94,16 +115,22 @@ class DataSourceFactory:
     def _get_default_source_configs(self) -> List[Dict[str, Any]]:
         """获取默认数据源配置"""
         configs = []
-
-        # AkShare配置（默认启用）
-        configs.append({
-            'type': DataSourceType.AKSHARE.value,
-            'config': {
-                'priority': 1,
-                'rate_limit': 1000
-            }
-        })
-
+        if YAHOO_FINANCE_AVAILABLE:
+            configs.append({
+                'type': DataSourceType.YAHOO_FINANCE.value,
+                'config': {
+                    'priority': 3,
+                    'rate_limit': 2000
+                }
+            })
+        if AKSHARE_AVAILABLE:
+            configs.append({
+                'type': DataSourceType.AKSHARE.value,
+                'config': {
+                    'priority': 5,
+                    'rate_limit': 1000
+                }
+            })
         return configs
 
 

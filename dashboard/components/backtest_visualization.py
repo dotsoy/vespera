@@ -442,30 +442,66 @@ def render_monthly_performance(trades, equity_curve):
 def render_backtest_visualization_main():
     """渲染回测可视化主面板"""
     st.header("📈 回测可视化分析")
-    
-    # 获取选中的股票
-    selected_stocks = st.session_state.get('selected_stocks', [])
-    
+
+    # 股票选择
+    st.subheader("🎯 股票选择")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # 预设股票组合
+        preset_groups = {
+            "热门股票": ["000001.SZ", "000002.SZ", "600000.SH", "600036.SH", "000858.SZ"],
+            "科技股": ["000001.SZ", "002415.SZ", "300750.SZ", "688981.SH", "300059.SZ"],
+            "金融股": ["600000.SH", "600036.SH", "000001.SZ", "600519.SH", "000002.SZ"],
+            "消费股": ["600519.SH", "000858.SZ", "002304.SZ", "600887.SH", "000568.SZ"]
+        }
+
+        selected_preset = st.selectbox(
+            "选择预设股票组合",
+            ["自定义"] + list(preset_groups.keys())
+        )
+
+        if selected_preset != "自定义":
+            selected_stocks = preset_groups[selected_preset]
+            st.info(f"已选择 {selected_preset}: {', '.join(selected_stocks)}")
+        else:
+            selected_stocks = []
+
+    with col2:
+        # 自定义股票输入
+        if selected_preset == "自定义":
+            stock_input = st.text_area(
+                "输入股票代码（每行一个）",
+                placeholder="000001.SZ\n000002.SZ\n600000.SH",
+                height=100
+            )
+
+            if stock_input.strip():
+                selected_stocks = [code.strip() for code in stock_input.strip().split('\n') if code.strip()]
+                st.info(f"已输入 {len(selected_stocks)} 只股票")
+        else:
+            st.info("使用预设股票组合，或选择'自定义'来手动输入股票代码")
+
     if not selected_stocks:
-        st.warning("请先在数据管理页面选择股票")
-        st.info("💡 提示：在数据管理页面选择股票后，再回到此页面查看回测可视化")
+        st.warning("请选择要分析的股票")
         return
-    
+
     # 策略选择
     strategy_name = st.selectbox(
         "选择策略",
         ["启明星策略", "简单移动平均", "RSI策略"],
         index=0
     )
-    
+
     # 生成回测数据
     if st.button("🚀 生成回测可视化", type="primary"):
         with st.spinner("正在生成回测数据..."):
             backtest_data = generate_detailed_backtest_data(selected_stocks[:5], strategy_name)  # 限制5只股票
-            
+
             if backtest_data:
                 st.success("回测数据生成完成！")
-                
+
                 # 存储到session state
                 st.session_state['backtest_data'] = backtest_data
             else:

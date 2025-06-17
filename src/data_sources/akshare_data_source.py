@@ -180,9 +180,13 @@ class AkShareDataSource(BaseDataSource):
 
             # 添加标准字段
             df['symbol'] = df['ts_code']
+            df['area'] = '未知'  # AkShare没有地区信息
+            df['industry'] = '未知'  # AkShare没有行业信息
             df['market'] = df['ts_code'].apply(self._get_market_from_code)
             df['exchange'] = df['ts_code'].apply(self._get_exchange_from_code)
             df['list_status'] = 'L'  # 默认为上市状态
+            df['is_hs'] = 'N'  # 默认不是沪深通
+            df['list_date'] = '20000101'  # 默认上市日期
 
             # 过滤ST股票
             if data_settings.exclude_st_stocks:
@@ -246,6 +250,12 @@ class AkShareDataSource(BaseDataSource):
 
             # 确保日期格式正确
             df['trade_date'] = pd.to_datetime(df['trade_date']).dt.strftime('%Y-%m-%d')
+
+            # 添加缺失的字段
+            if 'pre_close' not in df.columns:
+                df['pre_close'] = 0.0  # 前收盘价
+            if 'change_amount' not in df.columns:
+                df['change_amount'] = 0.0  # 涨跌额
 
             return df
 

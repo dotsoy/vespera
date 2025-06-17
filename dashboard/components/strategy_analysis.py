@@ -152,7 +152,7 @@ def render_strategy_selection():
 def render_stock_analysis(selected_stocks, config):
     """渲染股票分析结果"""
     if not selected_stocks:
-        st.warning("请先在数据管理页面选择要分析的股票")
+        st.warning("请先选择要分析的股票")
         return
     
     st.header(f"📊 {config['strategy_name']} 分析结果")
@@ -465,24 +465,58 @@ def render_strategy_analysis_main():
     """渲染策略分析主面板"""
     # 策略配置
     config = render_strategy_selection()
-    
+
     st.markdown("---")
-    
-    # 获取选中的股票
-    selected_stocks = st.session_state.get('selected_stocks', [])
-    
+
+    # 股票选择
+    st.subheader("🎯 股票选择")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # 预设股票组合
+        preset_groups = {
+            "热门股票": ["000001.SZ", "000002.SZ", "600000.SH", "600036.SH", "000858.SZ"],
+            "科技股": ["000001.SZ", "002415.SZ", "300750.SZ", "688981.SH", "300059.SZ"],
+            "金融股": ["600000.SH", "600036.SH", "000001.SZ", "600519.SH", "000002.SZ"],
+            "消费股": ["600519.SH", "000858.SZ", "002304.SZ", "600887.SH", "000568.SZ"]
+        }
+
+        selected_preset = st.selectbox(
+            "选择预设股票组合",
+            ["自定义"] + list(preset_groups.keys())
+        )
+
+        if selected_preset != "自定义":
+            selected_stocks = preset_groups[selected_preset]
+            st.info(f"已选择 {selected_preset}: {', '.join(selected_stocks)}")
+        else:
+            selected_stocks = []
+
+    with col2:
+        # 自定义股票输入
+        if selected_preset == "自定义":
+            stock_input = st.text_area(
+                "输入股票代码（每行一个）",
+                placeholder="000001.SZ\n000002.SZ\n600000.SH",
+                height=100
+            )
+
+            if stock_input.strip():
+                selected_stocks = [code.strip() for code in stock_input.strip().split('\n') if code.strip()]
+                st.info(f"已输入 {len(selected_stocks)} 只股票")
+        else:
+            st.info("使用预设股票组合，或选择'自定义'来手动输入股票代码")
+
+    # 分析按钮
     if selected_stocks:
-        st.info(f"当前选中 {len(selected_stocks)} 只股票: {', '.join(selected_stocks[:5])}{'...' if len(selected_stocks) > 5 else ''}")
-        
-        # 分析按钮
         if st.button("🚀 开始分析", type="primary"):
             # 股票分析
             render_stock_analysis(selected_stocks, config)
-            
+
             st.markdown("---")
-            
+
             # 回测分析
             render_backtest_results(config, selected_stocks)
     else:
-        st.warning("请先在 '数据管理' 页面选择要分析的股票")
-        st.info("💡 提示：在数据管理页面的股票选择器中选择股票后，再回到此页面进行分析")
+        st.warning("请选择要分析的股票")
