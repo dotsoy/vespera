@@ -58,8 +58,14 @@ logs:
 dashboard:
 	@echo "🚀 启动 Streamlit 仪表盘..."
 	@echo "📍 访问地址: http://localhost:8501"
-	@echo "🔬 Marimo研究室已集成到侧边栏"
-	streamlit run dashboard/app.py
+	@echo "�� Marimo研究室已集成到侧边栏"
+	@if [ -d ".venv" ]; then \
+		source .venv/bin/activate && streamlit run dashboard/app.py; \
+	else \
+		echo "❌ 错误: 未找到虚拟环境 (.venv)"; \
+		echo "请先运行: python -m venv .venv && source .venv/bin/activate && make install"; \
+		exit 1; \
+	fi
 
 # 注意: Airflow 已移除
 # airflow 命令已移除，原因：性能问题，待日后重新考虑
