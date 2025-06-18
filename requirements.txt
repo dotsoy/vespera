@@ -52,7 +52,7 @@ python-dotenv>=1.0.0
 pydantic
 pydantic-settings
 loguru>=0.7.0
-schedule
+schedule==1.2.1
 redis>=5.0.0
 
 # 开发工具
