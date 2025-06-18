@@ -19,6 +19,7 @@ class DataSourceType(Enum):
     EASTMONEY = "eastmoney"
     LOCAL_FILE = "local_file"
     DATABASE = "database"
+    ALLTICK = "alltick"
 
 
 class DataType(Enum):
@@ -35,6 +36,17 @@ class DataType(Enum):
     OPTIONS_DATA = "options_data"        # 期权数据
     NEWS_DATA = "news_data"              # 新闻数据
     SENTIMENT_DATA = "sentiment_data"    # 情感数据
+    FOREX_DATA = "forex_data"            # 外汇数据
+    CRYPTO_DATA = "crypto_data"          # 加密货币数据
+    TECHNICAL_INDICATORS = "technical_indicators"  # 技术指标
+    FUNDAMENTAL_DATA = "fundamental_data"  # 基本面数据
+    CORPORATE_ACTIONS = "corporate_actions"  # 公司行为
+    MARKET_OVERVIEW = "market_overview"  # 市场概览
+    ECONOMIC_INDICATORS = "economic_indicators"  # 经济指标
+    SECTOR_PERFORMANCE = "sector_performance"  # 行业表现
+    RISK_METRICS = "risk_metrics"  # 风险指标
+    PORTFOLIO_ANALYTICS = "portfolio_analytics"  # 投资组合分析
+    CUSTOM_DATA = "custom_data"  # 自定义数据
 
 
 @dataclass

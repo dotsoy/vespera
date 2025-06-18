@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pathlib import Path
 import sys
+import traceback
+from datetime import datetime, timedelta
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent.parent
@@ -15,6 +17,8 @@ sys.path.insert(0, str(project_root))
 
 from src.utils.logger import get_logger
 from src.utils.database import get_db_manager
+from src.data_sources.base_data_source import DataRequest, DataType
+from src.data_sources.data_source_factory import get_data_service
 
 logger = get_logger("stock_holographic_view")
 
@@ -47,8 +51,6 @@ def get_holographic_data_for_stock(ts_code: str):
     
     try:
         db_manager = get_db_manager()
-        from src.data_sources.data_source_factory import get_data_service
-        from datetime import datetime, timedelta
         
         data_service = get_data_service()
         
@@ -57,7 +59,7 @@ def get_holographic_data_for_stock(ts_code: str):
         start_date = (datetime.now() - timedelta(days=365)).strftime('%Y%m%d')
 
         # 创建数据请求对象
-        from src.data_sources.base_data_source import DataRequest, DataType
+        data_service = get_data_service()
 
         # 获取日线数据
         df_quotes = data_service.get_data(
@@ -68,24 +70,15 @@ def get_holographic_data_for_stock(ts_code: str):
                 end_date=end_date
             )
         )
+        
         if df_quotes is not None and not df_quotes.empty:
             logger.info(f"成功获取 {ts_code} 的日线数据，记录数: {len(df_quotes)}")
         else:
             logger.warning(f"未能获取 {ts_code} 的日线数据")
             return pd.DataFrame(), pd.DataFrame()
 
-        # 标准化字段名称以匹配图表需求
-        df_quotes = df_quotes.rename(columns={
-            'trade_date': 'date',
-            'open_price': 'open',
-            'close_price': 'close',
-            'high_price': 'high',
-            'low_price': 'low',
-            'vol': 'volume'
-        })
-
         # 确保日期格式正确
-        df_quotes['date'] = pd.to_datetime(df_quotes['date'])
+        df_quotes['trade_date'] = pd.to_datetime(df_quotes['trade_date'])
 
         # 存入ClickHouse
         try:
@@ -96,28 +89,28 @@ def get_holographic_data_for_stock(ts_code: str):
 
         # 尝试查询其他分析数据，如果表不存在则返回空DataFrame
         try:
-            query_tech = f"SELECT trade_date as date, rsi as trend_score, macd as momentum_score, ma5, ma10, ma20 FROM technical_indicators_daily WHERE ts_code = '{ts_code}' ORDER BY trade_date"
+            query_tech = f"SELECT trade_date, rsi as trend_score, macd as momentum_score, ma5, ma10, ma20 FROM technical_indicators_daily WHERE ts_code = '{ts_code}' ORDER BY trade_date"
             df_tech = db_manager.execute_postgres_query(query_tech)
             if not df_tech.empty:
-                df_tech['date'] = pd.to_datetime(df_tech['date'])
+                df_tech['trade_date'] = pd.to_datetime(df_tech['trade_date'])
         except Exception as e:
             logger.warning(f"技术分析数据查询失败: {e}")
             df_tech = pd.DataFrame()
 
         try:
-            query_capital = f"SELECT trade_date as date, main_net_inflow_rate as net_inflow_ratio, main_net_inflow as main_force_trend FROM capital_flow_daily WHERE ts_code = '{ts_code}' ORDER BY trade_date"
+            query_capital = f"SELECT trade_date, main_net_inflow_rate as net_inflow_ratio, main_net_inflow as main_force_trend FROM capital_flow_daily WHERE ts_code = '{ts_code}' ORDER BY trade_date"
             df_capital = db_manager.execute_postgres_query(query_capital)
             if not df_capital.empty:
-                df_capital['date'] = pd.to_datetime(df_capital['date'])
+                df_capital['trade_date'] = pd.to_datetime(df_capital['trade_date'])
         except Exception as e:
             logger.warning(f"资金流数据查询失败: {e}")
             df_capital = pd.DataFrame()
 
         try:
-            query_sentiment = f"SELECT trade_date as date, sentiment_score as signal_grade, 'AI分析' as signal_reason FROM market_sentiment_daily WHERE ts_code = '{ts_code}' ORDER BY trade_date"
+            query_sentiment = f"SELECT trade_date, sentiment_score as signal_grade, 'AI分析' as signal_reason FROM market_sentiment_daily WHERE ts_code = '{ts_code}' ORDER BY trade_date"
             df_signals = db_manager.execute_postgres_query(query_sentiment)
             if not df_signals.empty:
-                df_signals['date'] = pd.to_datetime(df_signals['date'])
+                df_signals['trade_date'] = pd.to_datetime(df_signals['trade_date'])
         except Exception as e:
             logger.warning(f"信号数据查询失败: {e}")
             df_signals = pd.DataFrame()
@@ -125,23 +118,23 @@ def get_holographic_data_for_stock(ts_code: str):
         # 新闻事件数据（暂时使用空DataFrame，因为没有相关表）
         df_news = pd.DataFrame()
 
-        # 使用Pandas的merge功能，基于'date'字段进行连接
+        # 使用Pandas的merge功能，基于'trade_date'字段进行连接
         df_holographic = df_quotes
         if not df_tech.empty:
-            df_holographic = pd.merge(df_holographic, df_tech, on="date", how="left")
+            df_holographic = pd.merge(df_holographic, df_tech, on="trade_date", how="left")
         if not df_capital.empty:
-            df_holographic = pd.merge(df_holographic, df_capital, on="date", how="left")
+            df_holographic = pd.merge(df_holographic, df_capital, on="trade_date", how="left")
         if not df_signals.empty:
-            df_holographic = pd.merge(df_holographic, df_signals, on="date", how="left")
+            df_holographic = pd.merge(df_holographic, df_signals, on="trade_date", how="left")
         
         # 确保日期格式正确，并作为索引
         if not df_holographic.empty:
-            df_holographic['date'] = pd.to_datetime(df_holographic['date'])
-            df_holographic = df_holographic.set_index('date')
+            df_holographic['trade_date'] = pd.to_datetime(df_holographic['trade_date'])
+            df_holographic = df_holographic.set_index('trade_date')
         
         return df_holographic, df_news
     except Exception as e:
-        logger.error(f"获取股票全息数据失败: {e}")
+        logger.error(f"获取股票全息数据失败: {e}\n{traceback.format_exc()}")
         return pd.DataFrame(), pd.DataFrame()
 
 
@@ -205,25 +198,30 @@ def render_interactive_chart(df_holographic, df_news):
                             subplot_titles=('K线与均线', '成交量', '资金流'))
         
         # 主图 - K线
-        fig.add_trace(
-            go.Candlestick(x=df_holographic.index,
-                          open=df_holographic['open'],
-                          high=df_holographic['high'],
-                          low=df_holographic['low'],
-                          close=df_holographic['close'],
-                          name='K线',
-                          hovertemplate='<b>日期</b>: %{x}<br><b>开盘</b>: %{open}<br><b>最高</b>: %{high}<br><b>最低</b>: %{low}<br><b>收盘</b>: %{close}<extra></extra>'),
-            row=1, col=1
+        candlestick = go.Candlestick(
+            x=df_holographic.index,
+            open=df_holographic['open_price'],
+            high=df_holographic['high_price'],
+            low=df_holographic['low_price'],
+            close=df_holographic['close_price'],
+            name='K线',
+            increasing_line_color='red',
+            decreasing_line_color='green',
+            hovertext=df_holographic.apply(
+                lambda x: f"日期: {x.name}<br>开盘: {x['open_price']:.2f}<br>最高: {x['high_price']:.2f}<br>最低: {x['low_price']:.2f}<br>收盘: {x['close_price']:.2f}<br>成交量: {x['vol']}<br>成交额: {x['amount']:.2f}",
+                axis=1
+            )
         )
+        fig.add_trace(candlestick, row=1, col=1)
         
         # 计算并添加均线
-        df_holographic['MA5'] = df_holographic['close'].rolling(window=5).mean()
-        df_holographic['MA10'] = df_holographic['close'].rolling(window=10).mean()
+        df_holographic['MA5'] = df_holographic['close_price'].rolling(window=5).mean()
+        df_holographic['MA10'] = df_holographic['close_price'].rolling(window=10).mean()
         fig.add_trace(go.Scatter(x=df_holographic.index, y=df_holographic['MA5'], mode='lines', name='MA5', line=dict(color='orange')), row=1, col=1)
         fig.add_trace(go.Scatter(x=df_holographic.index, y=df_holographic['MA10'], mode='lines', name='MA10', line=dict(color='purple')), row=1, col=1)
         
         # 副图一 - 成交量
-        fig.add_trace(go.Bar(x=df_holographic.index, y=df_holographic['volume'], name='成交量', marker_color='gray'), row=2, col=1)
+        fig.add_trace(go.Bar(x=df_holographic.index, y=df_holographic['vol'], name='成交量', marker_color='gray'), row=2, col=1)
         
         # 副图二 - 资金流
         if 'net_inflow_ratio' in df_holographic.columns:
@@ -237,8 +235,8 @@ def render_interactive_chart(df_holographic, df_news):
         # 添加新闻事件标记
         if not df_news.empty:
             for _, event in df_news.iterrows():
-                fig.add_vline(x=event['date'], line_width=1, line_dash="dash", line_color="blue", row=1, col=1)
-                fig.add_annotation(x=event['date'], y=1.05, yref="paper", text=event['event_title'], showarrow=True, arrowhead=1, row=1, col=1)
+                fig.add_vline(x=event['trade_date'], line_width=1, line_dash="dash", line_color="blue", row=1, col=1)
+                fig.add_annotation(x=event['trade_date'], y=1.05, yref="paper", text=event['event_title'], showarrow=True, arrowhead=1, row=1, col=1)
         
         fig.update_layout(height=800, width=1000, showlegend=True)
         st.plotly_chart(fig, use_container_width=True)
@@ -247,36 +245,28 @@ def render_interactive_chart(df_holographic, df_news):
 
 
 def render_linked_data_explorer(df_holographic):
-    """渲染关联数据深度探索"""
-    st.subheader("关联数据深度探索")
+    """渲染关联数据浏览器"""
+    st.subheader("关联数据浏览器")
     if not df_holographic.empty:
-        tab1, tab2, tab3, tab4 = st.tabs(["日线行情", "技术分析详情", "资金流详情", "信号历史"])
+        # 显示主要数据
+        st.dataframe(df_holographic[['open_price', 'high_price', 'low_price', 'close_price', 'vol']], use_container_width=True)
         
-        with tab1:
-            st.dataframe(df_holographic[['open', 'high', 'low', 'close', 'volume']], use_container_width=True)
+        # 显示技术指标
+        if 'trend_score' in df_holographic.columns:
+            st.subheader("技术指标")
+            st.dataframe(df_holographic[['trend_score', 'momentum_score', 'ma5', 'ma10', 'ma20']], use_container_width=True)
         
-        with tab2:
-            tech_cols = [col for col in ['trend_score', 'momentum_score', 'ma5', 'ma10', 'ma20'] if col in df_holographic.columns]
-            if tech_cols:
-                st.dataframe(df_holographic[tech_cols], use_container_width=True)
-            else:
-                st.warning("暂无技术分析数据")
-
-        with tab3:
-            capital_cols = [col for col in ['net_inflow_ratio', 'main_force_trend'] if col in df_holographic.columns]
-            if capital_cols:
-                st.dataframe(df_holographic[capital_cols], use_container_width=True)
-            else:
-                st.warning("暂无资金流数据")
-
-        with tab4:
-            signal_cols = [col for col in ['signal_grade', 'signal_reason'] if col in df_holographic.columns]
-            if signal_cols:
-                st.dataframe(df_holographic[signal_cols], use_container_width=True)
-            else:
-                st.warning("暂无信号数据")
+        # 显示资金流数据
+        if 'net_inflow_ratio' in df_holographic.columns:
+            st.subheader("资金流数据")
+            st.dataframe(df_holographic[['net_inflow_ratio', 'main_force_trend']], use_container_width=True)
+        
+        # 显示信号数据
+        if 'signal_grade' in df_holographic.columns:
+            st.subheader("信号数据")
+            st.dataframe(df_holographic[['signal_grade', 'signal_reason']], use_container_width=True)
     else:
-        st.warning("暂无关联数据")
+        st.warning("暂无数据可显示")
 
 
 def render_stock_holographic_view_main():

@@ -10,12 +10,29 @@ from sqlalchemy.pool import QueuePool
 from clickhouse_driver import Client as ClickHouseClient
 import redis
 from contextlib import contextmanager
+import os
+from loguru import logger
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 from config.settings import db_settings
 from src.utils.logger import get_logger
 
 logger = get_logger("database")
 
+# 全局数据库管理器实例
+_db_manager = None
+
+def get_db_manager() -> 'DatabaseManager':
+    """获取数据库管理器实例"""
+    global _db_manager
+    if _db_manager is None:
+        _db_manager = DatabaseManager()
+    return _db_manager
+
+def get_clickhouse_client() -> ClickHouseClient:
+    """获取 ClickHouse 客户端实例"""
+    return get_db_manager().clickhouse_client
 
 class DatabaseManager:
     """数据库管理器"""
@@ -259,25 +276,30 @@ class DatabaseManager:
             logger.error(f"Redis 缓存删除失败: {e}")
     
     def get_table_info(self, table_name: str) -> Dict[str, Any]:
-        """获取表结构信息"""
+        """获取表信息"""
         try:
-            metadata = MetaData()
-            table = Table(table_name, metadata, autoload_with=self.postgres_engine)
-            
-            columns = []
-            for column in table.columns:
-                columns.append({
-                    'name': column.name,
-                    'type': str(column.type),
-                    'nullable': column.nullable,
-                    'primary_key': column.primary_key
-                })
-            
-            return {
-                'table_name': table_name,
-                'columns': columns,
-                'indexes': [idx.name for idx in table.indexes]
-            }
+            with self.postgres_engine.connect() as conn:
+                # 获取表结构信息
+                columns_query = """
+                SELECT column_name, data_type, character_maximum_length
+                FROM information_schema.columns
+                WHERE table_name = :table_name
+                """
+                columns = conn.execute(text(columns_query), {"table_name": table_name}).fetchall()
+                
+                # 获取表统计信息
+                stats_query = """
+                SELECT reltuples as row_count, pg_size_pretty(pg_total_relation_size(:table_name)) as total_size
+                FROM pg_class
+                WHERE relname = :table_name
+                """
+                stats = conn.execute(text(stats_query), {"table_name": table_name}).fetchone()
+                
+                return {
+                    "columns": columns,
+                    "row_count": stats[0] if stats else 0,
+                    "total_size": stats[1] if stats else "0 bytes"
+                }
         except Exception as e:
             logger.error(f"获取表信息失败: {e}")
             raise
@@ -285,70 +307,69 @@ class DatabaseManager:
     def test_connections(self) -> Dict[str, bool]:
         """测试所有数据库连接"""
         results = {}
-        
-        # 测试 PostgreSQL
         try:
+            # 测试 PostgreSQL
             with self.postgres_engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            results['postgres'] = True
+            results["postgres"] = True
             logger.info("PostgreSQL 连接测试成功")
         except Exception as e:
-            results['postgres'] = False
+            results["postgres"] = False
             logger.error(f"PostgreSQL 连接测试失败: {e}")
         
-        # 测试 ClickHouse
         try:
+            # 测试 ClickHouse
             self.clickhouse_client.execute("SELECT 1")
-            results['clickhouse'] = True
+            results["clickhouse"] = True
             logger.info("ClickHouse 连接测试成功")
         except Exception as e:
-            results['clickhouse'] = False
+            results["clickhouse"] = False
             logger.error(f"ClickHouse 连接测试失败: {e}")
         
-        # 测试 Redis
         try:
+            # 测试 Redis
             self.redis_client.ping()
-            results['redis'] = True
+            results["redis"] = True
             logger.info("Redis 连接测试成功")
         except Exception as e:
-            results['redis'] = False
+            results["redis"] = False
             logger.error(f"Redis 连接测试失败: {e}")
         
         return results
     
     def close_connections(self) -> None:
-        """关闭所有连接"""
-        if self._postgres_engine:
-            self._postgres_engine.dispose()
-            logger.info("PostgreSQL 连接已关闭")
-        
-        if self._clickhouse_client:
-            self._clickhouse_client.disconnect()
-            logger.info("ClickHouse 连接已关闭")
-        
-        if self._redis_client:
-            self._redis_client.close()
-            logger.info("Redis 连接已关闭")
-
-    def query_dataframe(self, query):
-        """从 ClickHouse 查询数据并返回 DataFrame"""
+        """关闭所有数据库连接"""
         try:
-            result = self.clickhouse_client.execute(query, with_column_types=True)
-            data, columns = result
-            df = pd.DataFrame(data, columns=[col[0] for col in columns])
-            return df
+            if self._postgres_engine:
+                self._postgres_engine.dispose()
+                self._postgres_engine = None
+                logger.info("PostgreSQL 连接已关闭")
         except Exception as e:
-            logger.error(f"ClickHouse 查询失败: {e}")
-            return pd.DataFrame()
-
-
-# 全局数据库管理器实例
-db_manager = DatabaseManager()
-
-
-def get_db_manager() -> DatabaseManager:
-    """获取数据库管理器实例"""
-    return db_manager
+            logger.error(f"关闭 PostgreSQL 连接失败: {e}")
+        
+        try:
+            if self._clickhouse_client:
+                self._clickhouse_client.disconnect()
+                self._clickhouse_client = None
+                logger.info("ClickHouse 连接已关闭")
+        except Exception as e:
+            logger.error(f"关闭 ClickHouse 连接失败: {e}")
+        
+        try:
+            if self._redis_client:
+                self._redis_client.close()
+                self._redis_client = None
+                logger.info("Redis 连接已关闭")
+        except Exception as e:
+            logger.error(f"关闭 Redis 连接失败: {e}")
+    
+    def query_dataframe(self, query):
+        """执行查询并返回 DataFrame"""
+        try:
+            return self.clickhouse_client.query_dataframe(query)
+        except Exception as e:
+            logger.error(f"查询执行失败: {e}")
+            raise
 
 
 if __name__ == "__main__":

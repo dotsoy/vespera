@@ -138,7 +138,7 @@ class AkShareDataSource(BaseDataSource):
             all_interfaces = [
                 'stock_zh_a_hist',      # 主要接口
                 'stock_zh_a_daily',     # 备用接口1
-                'tool_trade_date_hist_sina'  # 备用接口2（如果可用）
+                'stock_zh_a_hist_tx'    # 备用接口2（如果可用）
             ]
         elif data_type == DataType.STOCK_BASIC:
             all_interfaces = [
@@ -402,117 +402,61 @@ class AkShareDataSource(BaseDataSource):
         return df
 
     def _fetch_daily_quotes(self, request: DataRequest) -> pd.DataFrame:
-        """获取日线行情数据（支持多接口轮换）"""
-        symbol = request.symbol
-        if not symbol:
-            raise DataSourceError("股票代码不能为空", self.name)
-
-        # 处理股票代码格式
-        symbol = self._format_symbol(symbol)
-
-        # 处理日期参数
-        start_date = request.start_date.strftime('%Y%m%d') if request.start_date else None
-        end_date = request.end_date.strftime('%Y%m%d') if request.end_date else None
-
-        # 选择最佳接口
-        interface = self._select_best_interface(DataType.DAILY_QUOTES)
-        logger.debug(f"使用接口 {interface} 获取 {symbol} 的日线数据")
-
+        """获取日线行情数据"""
         try:
-            df = self._fetch_daily_quotes_with_interface(interface, symbol, start_date, end_date)
+            symbol = request.symbol
+            if not symbol:
+                raise DataSourceError("股票代码不能为空", self.name)
 
-            if df.empty:
-                logger.warning(f"接口 {interface} 返回空数据")
-                self._record_interface_usage(interface, False, "返回空数据")
+            # 处理股票代码格式
+            symbol = self._format_symbol(symbol)
 
-                # 尝试备用接口
-                available_interfaces = self._get_available_interfaces(DataType.DAILY_QUOTES)
-                for backup_interface in available_interfaces:
-                    if backup_interface != interface:
-                        logger.info(f"尝试备用接口: {backup_interface}")
-                        try:
-                            df = self._fetch_daily_quotes_with_interface(backup_interface, symbol, start_date, end_date)
-                            if not df.empty:
-                                self._record_interface_usage(backup_interface, True)
-                                break
-                        except Exception as e:
-                            logger.warning(f"备用接口 {backup_interface} 也失败: {e}")
-                            self._record_interface_usage(backup_interface, False, str(e))
-                            continue
-            else:
-                self._record_interface_usage(interface, True)
+            # 处理日期参数
+            start_date = request.start_date.strftime('%Y%m%d') if request.start_date else None
+            end_date = request.end_date.strftime('%Y%m%d') if request.end_date else None
 
-            if df.empty:
-                return df
-
-            # 标准化数据格式
-            df = self._standardize_daily_quotes_data(df, request.symbol)
-            return df
-
-        except Exception as e:
-            error_msg = str(e)
-            logger.error(f"接口 {interface} 获取日线行情失败: {error_msg}")
-            self._record_interface_usage(interface, False, error_msg)
-
-            # 尝试备用接口
-            available_interfaces = self._get_available_interfaces(DataType.DAILY_QUOTES)
-            for backup_interface in available_interfaces:
-                if backup_interface != interface:
-                    logger.info(f"尝试备用接口: {backup_interface}")
-                    try:
-                        df = self._fetch_daily_quotes_with_interface(backup_interface, symbol, start_date, end_date)
-                        if not df.empty:
-                            df = self._standardize_daily_quotes_data(df, request.symbol)
-                            self._record_interface_usage(backup_interface, True)
-                            return df
-                    except Exception as backup_e:
-                        logger.warning(f"备用接口 {backup_interface} 也失败: {backup_e}")
-                        self._record_interface_usage(backup_interface, False, str(backup_e))
-                        continue
-
-            # 所有接口都失败
-            raise DataSourceError(f"所有接口都无法获取数据: {error_msg}", self.name)
-
-    def _fetch_daily_quotes_with_interface(self, interface: str, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
-        """使用指定接口获取日线数据"""
-        if interface == 'stock_zh_a_hist':
-            return ak.stock_zh_a_hist(
-                symbol=symbol,
-                period="daily",
-                start_date=start_date,
-                end_date=end_date,
-                adjust="qfq"
-            )
-        elif interface == 'stock_zh_a_daily':
-            # 备用接口1 - 如果AkShare有这个接口
+            # 尝试主接口
             try:
-                return ak.stock_zh_a_daily(
+                df = ak.stock_zh_a_hist(
+                    symbol=symbol,
+                    start_date=start_date,
+                    end_date=end_date,
+                    adjust="qfq"
+                )
+                if not df.empty:
+                    return self._standardize_daily_quotes_data(df, symbol)
+            except Exception as e:
+                logger.error(f"接口 stock_zh_a_hist 获取日线行情失败: {e}")
+
+            # 尝试备用接口1
+            try:
+                df = ak.stock_zh_a_daily(
                     symbol=symbol,
                     start_date=start_date,
                     end_date=end_date
                 )
-            except AttributeError:
-                # 如果接口不存在，抛出异常
-                raise DataSourceError(f"接口 {interface} 不存在", self.name)
-        elif interface == 'tool_trade_date_hist_sina':
-            # 备用接口2 - 使用新浪数据
-            try:
-                df = ak.tool_trade_date_hist_sina(symbol=symbol)
                 if not df.empty:
-                    logger.info("备用接口 tool_trade_date_hist_sina 获取日线行情成功")
-                    return df
+                    return self._standardize_daily_quotes_data(df, symbol)
             except Exception as e:
-                logger.warning(f"备用接口 tool_trade_date_hist_sina 也失败: {e}")
-                raise DataSourceError(f"接口 {interface} 不存在", self.name)
-        else:
-            # 默认使用主接口
-            return ak.stock_zh_a_hist(
-                symbol=symbol,
-                period="daily",
-                start_date=start_date,
-                end_date=end_date,
-                adjust="qfq"
-            )
+                logger.warning(f"备用接口 stock_zh_a_daily 也失败: {e}")
+
+            # 尝试备用接口2
+            try:
+                df = ak.stock_zh_a_hist_tx(
+                    symbol=symbol,
+                    start_date=start_date,
+                    end_date=end_date
+                )
+                if not df.empty:
+                    return self._standardize_daily_quotes_data(df, symbol)
+            except Exception as e:
+                logger.warning(f"备用接口 stock_zh_a_hist_tx 也失败: {e}")
+
+            raise DataSourceError("所有接口都无法获取数据", self.name)
+
+        except Exception as e:
+            logger.error(f"AkShare数据获取失败: {e}")
+            return pd.DataFrame()
 
     def _standardize_daily_quotes_data(self, df: pd.DataFrame, ts_code: str) -> pd.DataFrame:
         """标准化日线数据格式"""
@@ -520,14 +464,18 @@ class AkShareDataSource(BaseDataSource):
             return df
 
         # 统一字段名
-        df = df.rename(columns={
+        column_mapping = {
             'date': 'trade_date',
             'open': 'open_price',
             'high': 'high_price',
             'low': 'low_price',
             'close': 'close_price',
-            'volume': 'vol'
-        })
+            'volume': 'vol',
+            'amount': 'amount'
+        }
+
+        # 重命名存在的列
+        df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
 
         # 添加股票代码
         df['ts_code'] = ts_code
@@ -541,6 +489,12 @@ class AkShareDataSource(BaseDataSource):
             df['pre_close'] = 0.0
         if 'change_amount' not in df.columns:
             df['change_amount'] = 0.0
+        if 'amplitude' not in df.columns:
+            df['amplitude'] = 0.0
+        if 'pct_chg' not in df.columns:
+            df['pct_chg'] = 0.0
+        if 'turnover_rate' not in df.columns:
+            df['turnover_rate'] = 0.0
 
         # 过滤无交易的日线数据（成交量为0或缺失的日期）
         df = df[df['vol'] > 0]

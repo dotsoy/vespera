@@ -1,264 +1,132 @@
 """
-数据源工厂
-负责创建和配置各种数据源
+数据源工厂模块
+用于创建和管理数据源实例
 """
-from typing import Dict, Any, Optional, List
+import importlib
+from typing import Dict, Optional, Type, Union
 from loguru import logger
+import pandas as pd
 
-from .base_data_source import BaseDataSource, DataSourceType
-
-# 可选导入，避免依赖问题
-try:
-    from .yahoo_finance_data_source import YahooFinanceDataSource
-    YAHOO_FINANCE_AVAILABLE = True
-except ImportError:
-    YahooFinanceDataSource = None
-    YAHOO_FINANCE_AVAILABLE = False
-
-try:
-    from .akshare_data_source import AkShareDataSource
-    AKSHARE_AVAILABLE = True
-except ImportError:
-    AkShareDataSource = None
-    AKSHARE_AVAILABLE = False
-
-from .data_source_manager import DataSourceManager
-from .cache_manager import CacheManager
-from config.settings import data_settings
-
+from .base_data_source import (
+    BaseDataSource,
+    DataType,
+    DataSourceType,
+    DataRequest,
+    DataSourceError
+)
+from .alltick_data_source import AllTickDataSource
 
 class DataSourceFactory:
-    """数据源工厂"""
+    """数据源工厂类"""
     
     def __init__(self):
-        self.data_source_classes = {}
-        if YAHOO_FINANCE_AVAILABLE:
-            self.data_source_classes[DataSourceType.YAHOO_FINANCE] = YahooFinanceDataSource
-        if AKSHARE_AVAILABLE:
-            self.data_source_classes[DataSourceType.AKSHARE] = AkShareDataSource
+        """初始化数据源工厂"""
+        self._sources: Dict[str, BaseDataSource] = {}
+        self._initialize_sources()
         
-        self.default_configs = {}
-        if YAHOO_FINANCE_AVAILABLE:
-            self.default_configs[DataSourceType.YAHOO_FINANCE] = {
-                'priority': 3,
-                'rate_limit': 2000,
-                'description': 'Yahoo Finance免费金融数据接口'
-            }
-        if AKSHARE_AVAILABLE:
-            self.default_configs[DataSourceType.AKSHARE] = {
-                'priority': 5,
-                'rate_limit': 1000,
-                'description': 'Akshare免费金融数据接口'
-            }
-    
-    def create_data_source(self, source_type: DataSourceType, 
-                          config: Optional[Dict[str, Any]] = None) -> Optional[BaseDataSource]:
-        """
-        创建数据源实例
-        
-        Args:
-            source_type: 数据源类型
-            config: 配置参数
-            
-        Returns:
-            BaseDataSource: 数据源实例
-        """
-        if source_type not in self.data_source_classes:
-            logger.error(f"不支持的数据源类型: {source_type}")
-            return None
-        
-        # 合并默认配置和用户配置
-        final_config = self.default_configs.get(source_type, {}).copy()
-        if config:
-            final_config.update(config)
-        
+    def _initialize_sources(self):
+        """初始化所有数据源"""
+        # 初始化 AllTick 数据源
         try:
-            source_class = self.data_source_classes[source_type]
-
-            return source_class(final_config)
-
+            alltick_source = AllTickDataSource(api_token='5d77b3af30d6b74b6bad3340996cb399-c-app')
+            if alltick_source.initialize():
+                self._register_source('alltick', alltick_source)
+                logger.info("AllTick 数据源初始化成功")
+            else:
+                logger.warning("AllTick 数据源初始化失败")
         except Exception as e:
-            logger.error(f"创建数据源 {source_type} 失败: {e}")
-            return None
-    
-    def create_manager_with_sources(self, source_configs: Optional[List[Dict[str, Any]]] = None) -> DataSourceManager:
-        """
-        创建配置好的数据源管理器
+            logger.error(f"AllTick 数据源初始化失败: {e}")
+        
+    def _register_source(self, name: str, source: Union[str, BaseDataSource], class_name: Optional[str] = None) -> bool:
+        """注册数据源
         
         Args:
-            source_configs: 数据源配置列表
+            name: 数据源名称
+            source: 数据源实例或模块路径
+            class_name: 数据源类名（如果source是模块路径）
             
         Returns:
-            DataSourceManager: 配置好的数据源管理器
+            bool: 是否注册成功
         """
-        manager = DataSourceManager()
-        
-        # 如果没有提供配置，使用默认配置
-        if not source_configs:
-            source_configs = self._get_default_source_configs()
-        
-        # 创建并注册数据源
-        for config in source_configs:
-            source_type = config.get('type')
-            if isinstance(source_type, str):
-                try:
-                    source_type = DataSourceType[source_type]
-                except KeyError:
-                    logger.error(f"无效的数据源类型字符串: {source_type}")
-                    continue
-            source_config = config.get('config', {})
+        try:
+            if isinstance(source, str):
+                module = importlib.import_module(f'.{source}', package='src.data_sources')
+                source_class = getattr(module, class_name)
+                source = source_class()
+                
+            if not isinstance(source, BaseDataSource):
+                raise ValueError(f"数据源 {name} 必须是 BaseDataSource 的实例")
+                
+            self._sources[name] = source
+            logger.info(f"数据源 {name} 注册成功")
+            return True
             
-            data_source = self.create_data_source(source_type, source_config)
-            if data_source:
-                success = manager.register_data_source(data_source)
-                if success:
-                    logger.info(f"数据源 {data_source.name} 注册成功")
-                else:
-                    logger.warning(f"数据源 {data_source.name} 注册失败")
-        
-        return manager
-    
-    def _get_default_source_configs(self) -> List[Dict[str, Any]]:
-        """获取默认数据源配置"""
-        configs = []
-        if YAHOO_FINANCE_AVAILABLE:
-            configs.append({
-                'type': DataSourceType.YAHOO_FINANCE,
-                'config': {
-                    'priority': 3,
-                    'rate_limit': 2000
-                }
-            })
-        if AKSHARE_AVAILABLE:
-            configs.append({
-                'type': DataSourceType.AKSHARE,
-                'config': {
-                    'priority': 5,
-                    'rate_limit': 1000
-                }
-            })
-        return configs
-
-
-class UnifiedDataService:
-    """统一数据服务"""
-    
-    def __init__(self, source_configs: Optional[List[Dict[str, Any]]] = None,
-                 enable_cache: bool = True, cache_dir: str = "cache"):
-        self.factory = DataSourceFactory()
-        self.manager = self.factory.create_manager_with_sources(source_configs)
-        
-        # 缓存管理器
-        self.cache_manager = CacheManager(cache_dir) if enable_cache else None
-        
-        logger.info("统一数据服务初始化完成")
-    
-    def get_data(self, request, preferred_sources: Optional[List[str]] = None,
-                 fallback: bool = True, merge_strategy: str = 'first_success',
-                 use_cache: bool = True):
-        """
-        获取数据（带缓存支持）
+        except Exception as e:
+            logger.error(f"注册数据源 {name} 失败: {e}")
+            return False
+            
+    def get_source(self, name: str) -> Optional[BaseDataSource]:
+        """获取数据源实例
         
         Args:
-            request: 数据请求
-            preferred_sources: 首选数据源
-            fallback: 是否启用故障转移
-            merge_strategy: 合并策略
-            use_cache: 是否使用缓存
+            name: 数据源名称
             
         Returns:
-            DataResponse: 数据响应
+            Optional[BaseDataSource]: 数据源实例
         """
-        from src.utils.database import get_db_manager
+        return self._sources.get(name)
         
-        # 尝试从缓存获取
-        if use_cache and self.cache_manager:
-            cached_response = self.cache_manager.get(request)
-            if cached_response:
-                logger.info("从缓存获取数据成功")
-                return cached_response
+    def get_available_sources(self) -> Dict[str, BaseDataSource]:
+        """获取所有可用的数据源
         
-        # 从数据源获取
-        response = self.manager.get_data(
-            request=request,
-            preferred_sources=preferred_sources,
-            fallback=fallback,
-            merge_strategy=merge_strategy
-        )
+        Returns:
+            Dict[str, BaseDataSource]: 数据源字典
+        """
+        return {name: source for name, source in self._sources.items() 
+                if source.is_available()}
+                
+    def get_data(self, request: DataRequest) -> pd.DataFrame:
+        """获取数据
         
-        # 存储到缓存
-        if use_cache and self.cache_manager and response is not None and not response.empty:
-            self.cache_manager.put(request, response)
-        
-        # 如果获取成功且数据不为空，将数据保存到ClickHouse
-        if response is not None and not response.empty:
+        Args:
+            request: 数据请求对象
+            
+        Returns:
+            pd.DataFrame: 数据DataFrame
+        """
+        # 尝试从所有可用的数据源获取数据
+        for source in self.get_available_sources().values():
             try:
-                db_manager = get_db_manager()
-                db_manager.insert_dataframe_to_clickhouse(response.data, 'daily_quotes')
-                logger.info(f"已将数据保存到ClickHouse，表名: daily_quotes")
+                df = source.fetch_data(request)
+                if df is not None and not df.empty:
+                    return df
             except Exception as e:
-                logger.error(f"保存数据到ClickHouse失败: {e}")
-        
-        return response
-    
-    def get_available_sources(self, data_type):
-        """获取可用数据源"""
-        return self.manager.get_available_sources(data_type)
-    
-    def health_check(self):
-        """健康检查"""
-        health_status = self.manager.health_check()
-        
-        if self.cache_manager:
-            cache_stats = self.cache_manager.get_cache_stats()
-            health_status['cache'] = cache_stats
-        
-        return health_status
-    
-    def clear_cache(self, data_type=None):
-        """清空缓存"""
-        if self.cache_manager:
-            self.cache_manager.clear_cache(data_type)
-    
-    def close(self):
-        """关闭服务"""
-        self.manager.close_all()
-        logger.info("统一数据服务已关闭")
+                logger.error(f"从数据源 {source.__class__.__name__} 获取数据失败: {e}")
+                continue
+                
+        # 如果没有数据源返回数据，返回空DataFrame
+        return pd.DataFrame()
+                
+    def close_all(self):
+        """关闭所有数据源"""
+        for source in self._sources.values():
+            try:
+                source.close()
+            except Exception as e:
+                logger.error(f"关闭数据源失败: {e}")
+        self._sources.clear()
+        logger.info("所有数据源已关闭")
 
+# 创建全局数据源工厂实例
+_factory = None
 
-# 全局数据服务实例
-_global_data_service: Optional[UnifiedDataService] = None
-
-
-def get_data_service(source_configs: Optional[List[Dict[str, Any]]] = None,
-                    enable_cache: bool = True, cache_dir: str = "cache") -> UnifiedDataService:
-    """
-    获取全局数据服务实例
+def get_data_service() -> DataSourceFactory:
+    """获取数据服务实例
     
-    Args:
-        source_configs: 数据源配置
-        enable_cache: 是否启用缓存
-        cache_dir: 缓存目录
-        
     Returns:
-        UnifiedDataService: 数据服务实例
+        DataSourceFactory: 数据源工厂实例
     """
-    global _global_data_service
-    
-    if _global_data_service is None:
-        _global_data_service = UnifiedDataService(
-            source_configs=source_configs,
-            enable_cache=enable_cache,
-            cache_dir=cache_dir
-        )
-    
-    return _global_data_service
-
-
-def close_data_service():
-    """关闭全局数据服务"""
-    global _global_data_service
-    
-    if _global_data_service:
-        _global_data_service.close()
-        _global_data_service = None
+    global _factory
+    if _factory is None:
+        _factory = DataSourceFactory()
+    return _factory

@@ -1,6 +1,6 @@
 # 核心数据处理
-pandas
-numpy
+pandas>=2.0.0
+numpy>=1.24.0
 scipy
 
 # 技术分析
@@ -8,15 +8,15 @@ tulipy
 pandas-ta
 
 # 数据库
-sqlalchemy
-psycopg2-binary
-clickhouse-driver
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+clickhouse-driver>=0.2.6
 alembic
 
 # 数据获取
 akshare
-requests
-beautifulsoup4
+requests>=2.31.0
+beautifulsoup4>=4.12.0
 selenium
 
 # 工作流调度 (已移除 Apache Airflow)
@@ -49,12 +49,12 @@ mplfinance
 perspective-python
 
 # 工具库
-python-dotenv
+python-dotenv>=1.0.0
 pydantic
 pydantic-settings
-loguru
+loguru>=0.7.0
 schedule
-redis
+redis>=5.0.0
 
 # 开发工具
 pytest
@@ -71,7 +71,7 @@ fastapi
 sendgrid
 
 # 时间处理
-pytz
+pytz>=2023.3
 pendulum
 
 # 配置管理
@@ -87,3 +87,8 @@ diskcache
 
 # 并发处理
 celery
+
+# 新增依赖
+aiohttp>=3.9.0
+lxml>=4.9.0
+tqdm>=4.66.0

@@ -43,6 +43,16 @@ class DataSourceManager:
         self.cooldown_duration = 30  # 冷却时间（秒）
         self.min_success_rate = 0.7  # 最小成功率阈值
         
+        self._factory = None
+        
+    @property
+    def factory(self):
+        """获取数据源工厂实例"""
+        if self._factory is None:
+            from .data_source_factory import DataSourceFactory
+            self._factory = DataSourceFactory()
+        return self._factory
+        
     def register_data_source(self, data_source: BaseDataSource) -> bool:
         """
         注册数据源
@@ -241,10 +251,32 @@ class DataSourceManager:
             # 格式化日期为 YYYY-MM-DD
             start_date = request.start_date.strftime('%Y-%m-%d')
             end_date = request.end_date.strftime('%Y-%m-%d')
-            df = db_manager.query_dataframe(f"SELECT * FROM daily_quotes WHERE symbol = '{request.symbol}' AND trade_date BETWEEN '{start_date}' AND '{end_date}'")
+            df = db_manager.query_dataframe(f"""
+                SELECT 
+                    trade_date,
+                    symbol,
+                    open_price,
+                    high_price,
+                    low_price,
+                    close_price,
+                    vol,
+                    amount,
+                    amplitude,
+                    pct_chg,
+                    change_amount,
+                    turnover_rate,
+                    ts_code,
+                    pre_close
+                FROM daily_quotes 
+                WHERE symbol = '{request.symbol}' 
+                AND trade_date BETWEEN '{start_date}' AND '{end_date}'
+            """)
             if not df.empty:
                 logger.info(f"从 ClickHouse 成功获取数据，记录数: {len(df)}")
                 return df
+            else:
+                logger.warning("从 ClickHouse 获取的数据为空")
+                return pd.DataFrame()
         except Exception as e:
             logger.warning(f"从 ClickHouse 获取数据失败: {e}")
 
