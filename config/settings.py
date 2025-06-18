@@ -12,29 +12,31 @@ class DatabaseSettings(BaseSettings):
     """数据库配置"""
     
     # PostgreSQL 配置
-    postgres_host: str = Field(default="localhost", env="POSTGRES_HOST")
-    postgres_port: int = Field(default=5432, env="POSTGRES_PORT")
-    postgres_db: str = Field(default="qiming_star", env="POSTGRES_DB")
-    postgres_user: str = Field(default="qiming_user", env="POSTGRES_USER")
-    postgres_password: str = Field(default="qiming_pass_2024", env="POSTGRES_PASSWORD")
+    postgres_host: str = "localhost"
+    postgres_port: int = 5432
+    postgres_db: str = "qiming_star"
+    postgres_user: str = "qiming_user"
+    postgres_password: str = "qiming_pass_2024"
     
     # ClickHouse 配置
-    clickhouse_host: str = Field(default="localhost", env="CLICKHOUSE_HOST")
-    clickhouse_port: int = Field(default=9000, env="CLICKHOUSE_PORT")
-    clickhouse_db: str = Field(default="qiming_timeseries", env="CLICKHOUSE_DB")
-    clickhouse_user: str = Field(default="qiming_user", env="CLICKHOUSE_USER")
-    clickhouse_password: str = Field(default="qiming_pass_2024", env="CLICKHOUSE_PASSWORD")
+    clickhouse_host: str = "localhost"
+    clickhouse_port: int = 9000
+    clickhouse_db: str = "qiming_timeseries"
+    clickhouse_user: str = "qiming_user"
+    clickhouse_password: str = "qiming_pass_2024"
     
     # Redis 配置
-    redis_host: str = Field(default="localhost", env="REDIS_HOST")
-    redis_port: int = Field(default=6379, env="REDIS_PORT")
-    redis_password: str = Field(default="qiming_redis_2024", env="REDIS_PASSWORD")
-    redis_db: int = Field(default=0, env="REDIS_DB")
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: str = "qiming_redis_2024"
+    redis_db: int = 0
     
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
-        "extra": "allow"
+        "extra": "allow",
+        "env_prefix": "",
+        "env_nested_delimiter": "_"
     }
     
     @property
@@ -52,115 +54,99 @@ class DatabaseSettings(BaseSettings):
 
 class DataSourceSettings(BaseSettings):
     """数据源配置"""
-
-    # AkShare 配置（免费，无需API key）
-    akshare_enabled: bool = Field(default=True, env="AKSHARE_ENABLED")
-    akshare_timeout: int = Field(default=30, env="AKSHARE_TIMEOUT")
-
-    # Yahoo Finance 配置（免费，无需API key）
-    yahoo_finance_enabled: bool = Field(default=True, env="YAHOO_FINANCE_ENABLED")
-    yahoo_finance_timeout: int = Field(default=30, env="YAHOO_FINANCE_TIMEOUT")
-
-    # Alpha Vantage 配置
-    alpha_vantage_api_key: str = Field(default="", env="ALPHA_VANTAGE_API_KEY")
-    alpha_vantage_timeout: int = Field(default=30, env="ALPHA_VANTAGE_TIMEOUT")
-
-    # 多数据源配置
-    enable_multi_source: bool = Field(default=True, env="ENABLE_MULTI_SOURCE")
-    default_fusion_strategy: str = Field(default="quality_based", env="DEFAULT_FUSION_STRATEGY")
-    enable_data_cache: bool = Field(default=True, env="ENABLE_DATA_CACHE")
-    cache_ttl_minutes: int = Field(default=60, env="CACHE_TTL_MINUTES")
-    max_concurrent_sources: int = Field(default=3, env="MAX_CONCURRENT_SOURCES")
-
-    # 数据更新配置
-    market_open_time: str = Field(default="09:30", env="MARKET_OPEN_TIME")
-    market_close_time: str = Field(default="15:00", env="MARKET_CLOSE_TIME")
-    data_update_interval: int = Field(default=300, env="DATA_UPDATE_INTERVAL")  # 秒
-
-    # 股票池配置
-    min_market_cap: float = Field(default=50.0, env="MIN_MARKET_CAP")  # 亿元
-    exclude_st_stocks: bool = Field(default=True, env="EXCLUDE_ST_STOCKS")
-    exclude_new_stocks_days: int = Field(default=60, env="EXCLUDE_NEW_STOCKS_DAYS")
-
+    akshare_enabled: bool = True
+    akshare_timeout: int = 30
+    yahoo_finance_enabled: bool = True
+    yahoo_finance_timeout: int = 30
+    alpha_vantage_api_key: str = ""
+    alpha_vantage_timeout: int = 30
+    enable_multi_source: bool = True
+    default_fusion_strategy: str = "quality_based"
+    enable_data_cache: bool = True
+    cache_ttl_minutes: int = 60
+    max_concurrent_sources: int = 3
+    market_open_time: str = "09:30"
+    market_close_time: str = "15:00"
+    data_update_interval: int = 300
+    min_market_cap: float = 50.0
+    exclude_st_stocks: bool = True
+    exclude_new_stocks_days: int = 60
+    
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
-        "extra": "allow"
+        "extra": "allow",
+        "env_prefix": "",
+        "env_nested_delimiter": "_"
     }
 
 
 class AnalysisSettings(BaseSettings):
     """分析配置"""
-    
-    # 技术分析参数
-    ma_periods: list = Field(default=[5, 10, 20, 60], env="MA_PERIODS")
-    ema_periods: list = Field(default=[12, 26], env="EMA_PERIODS")
-    rsi_period: int = Field(default=14, env="RSI_PERIOD")
-    macd_fast: int = Field(default=12, env="MACD_FAST")
-    macd_slow: int = Field(default=26, env="MACD_SLOW")
-    macd_signal: int = Field(default=9, env="MACD_SIGNAL")
-    
-    # 资金流分析参数
-    volume_ma_period: int = Field(default=20, env="VOLUME_MA_PERIOD")
-    money_flow_threshold: float = Field(default=0.6, env="MONEY_FLOW_THRESHOLD")
-    
-    # 信号融合参数
-    min_technical_score: float = Field(default=0.7, env="MIN_TECHNICAL_SCORE")
-    min_capital_score: float = Field(default=0.8, env="MIN_CAPITAL_SCORE")
-    signal_confidence_threshold: float = Field(default=0.75, env="SIGNAL_CONFIDENCE_THRESHOLD")
+    ma_periods: list = [5, 10, 20, 60]
+    ema_periods: list = [12, 26]
+    rsi_period: int = 14
+    macd_fast: int = 12
+    macd_slow: int = 26
+    macd_signal: int = 9
+    volume_ma_period: int = 20
+    money_flow_threshold: float = 0.6
+    min_technical_score: float = 0.7
+    min_capital_score: float = 0.8
+    signal_confidence_threshold: float = 0.75
     
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
-        "extra": "allow"
+        "extra": "allow",
+        "env_prefix": "",
+        "env_nested_delimiter": "_"
     }
 
 
 class NotificationSettings(BaseSettings):
     """通知配置"""
-    
-    # 邮件通知
-    sendgrid_api_key: str = Field(default="", env="SENDGRID_API_KEY")
-    notification_email: str = Field(default="", env="NOTIFICATION_EMAIL")
-    
-    # 通知条件
-    enable_signal_alerts: bool = Field(default=True, env="ENABLE_SIGNAL_ALERTS")
-    enable_error_alerts: bool = Field(default=True, env="ENABLE_ERROR_ALERTS")
-    min_signal_score_for_alert: float = Field(default=0.85, env="MIN_SIGNAL_SCORE_FOR_ALERT")
+    sendgrid_api_key: str = ""
+    notification_email: str = ""
+    enable_signal_alerts: bool = True
+    enable_error_alerts: bool = True
+    min_signal_score_for_alert: float = 0.85
     
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
-        "extra": "allow"
+        "extra": "allow",
+        "env_prefix": "",
+        "env_nested_delimiter": "_"
     }
 
 
 class AppSettings(BaseSettings):
     """应用配置"""
-    
-    # 基础配置
-    app_name: str = Field(default="启明星股票分析系统", env="APP_NAME")
-    version: str = Field(default="1.0.0", env="APP_VERSION")
-    debug: bool = Field(default=False, env="DEBUG")
+    app_name: str = "启明星股票分析系统"
+    version: str = "1.0.0"
+    debug: bool = False
     
     # 路径配置
     project_root: Path = Path(__file__).parent.parent
     data_dir: Path = project_root / "data"
     logs_dir: Path = project_root / "logs"
     
-    # Streamlit 配置
-    streamlit_host: str = Field(default="0.0.0.0", env="STREAMLIT_HOST")
-    streamlit_port: int = Field(default=8501, env="STREAMLIT_PORT")
+    # Web 服务配置
+    streamlit_host: str = "0.0.0.0"
+    streamlit_port: int = 8501
     
     # 日志配置
-    log_level: str = Field(default="INFO", env="LOG_LEVEL")
-    log_rotation: str = Field(default="1 day", env="LOG_ROTATION")
-    log_retention: str = Field(default="30 days", env="LOG_RETENTION")
+    log_level: str = "INFO"
+    log_rotation: str = "1 day"
+    log_retention: str = "30 days"
     
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
-        "extra": "allow"
+        "extra": "allow",
+        "env_prefix": "",
+        "env_nested_delimiter": "_"
     }
 
 
