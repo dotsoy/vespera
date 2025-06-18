@@ -5,6 +5,7 @@ import streamlit as st
 import pandas as pd
 import sys
 from pathlib import Path
+import plotly.graph_objects as go
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent.parent
@@ -23,13 +24,13 @@ except ImportError as e:
     logger.warning(f"数据库模块导入失败: {e}")
     DB_AVAILABLE = False
 
-# Perspective CDN 配置
-PERSPECTIVE_CDN = {
-    'viewer': "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer/dist/cdn/perspective-viewer.js",
-    'datagrid': "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-datagrid/dist/cdn/perspective-viewer-datagrid.js",
-    'd3fc': "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-d3fc/dist/cdn/perspective-viewer-d3fc.js",
-    'core': "https://cdn.jsdelivr.net/npm/@finos/perspective/dist/cdn/perspective.js"
-}
+# Perspective CDN 配置（已废弃）
+# PERSPECTIVE_CDN = {
+#     'viewer': "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer/dist/cdn/perspective-viewer.js",
+#     'datagrid': "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-datagrid/dist/cdn/perspective-viewer-datagrid.js",
+#     'd3fc': "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-d3fc/dist/cdn/perspective-viewer-d3fc.js",
+#     'core': "https://cdn.jsdelivr.net/npm/@finos/perspective/dist/cdn/perspective.js"
+# }
 
 def get_available_tables():
     """获取可用的数据库表"""
@@ -147,59 +148,30 @@ def load_table_data(table_name: str, limit: int = 1000):
         return pd.DataFrame()
 
 
-def render_perspective_table(data: pd.DataFrame, table_name: str):
-    """使用Perspective CDN渲染数据表"""
+def render_plotly_table(data: pd.DataFrame, table_name: str):
+    """使用Plotly渲染数据表"""
     if data.empty:
         st.warning("数据为空")
         return
-
-    try:
-        # 注入 Perspective CDN 脚本
-        st.markdown("""
-        <script type="module">
-            import "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer/dist/cdn/perspective-viewer.js";
-            import "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-datagrid/dist/cdn/perspective-viewer-datagrid.js";
-            import "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-d3fc/dist/cdn/perspective-viewer-d3fc.js";
-            import perspective from "https://cdn.jsdelivr.net/npm/@finos/perspective/dist/cdn/perspective.js";
-        </script>
-        """, unsafe_allow_html=True)
-
-        # 配置选项
-        st.subheader("📊 多维度数据分析")
-
-        # 将数据转换为 JSON 格式
-        json_data = data.to_json(orient='records')
-        
-        # 创建 Perspective 容器
-        st.markdown(f"""
-        <perspective-viewer style="height: 600px;">
-            <script>
-                const viewer = document.querySelector('perspective-viewer');
-                const data = {json_data};
-                viewer.load(data);
-            </script>
-        </perspective-viewer>
-        """, unsafe_allow_html=True)
-
-        # 显示数据统计
-        st.subheader("📈 数据统计")
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            st.metric("总行数", f"{len(data):,}")
-        with col2:
-            st.metric("总列数", len(data.columns))
-        with col3:
-            numeric_cols = data.select_dtypes(include=['number']).columns
-            st.metric("数值列", len(numeric_cols))
-        with col4:
-            categorical_cols = data.select_dtypes(include=['object', 'category']).columns
-            st.metric("分类列", len(categorical_cols))
-
-    except Exception as e:
-        logger.error(f"渲染数据表失败: {e}")
-        st.error(f"渲染数据表失败: {str(e)}")
-        st.dataframe(data, use_container_width=True)
+    st.subheader("📊 数据表展示（Plotly）")
+    fig = go.Figure(data=[go.Table(
+        header=dict(values=list(data.columns), fill_color='paleturquoise', align='left'),
+        cells=dict(values=[data[col] for col in data.columns], fill_color='lavender', align='left')
+    )])
+    st.plotly_chart(fig, use_container_width=True)
+    # 显示数据统计
+    st.subheader("📈 数据统计")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("总行数", f"{len(data):,}")
+    with col2:
+        st.metric("总列数", len(data.columns))
+    with col3:
+        numeric_cols = data.select_dtypes(include=['number']).columns
+        st.metric("数值列", len(numeric_cols))
+    with col4:
+        categorical_cols = data.select_dtypes(include=['object', 'category']).columns
+        st.metric("分类列", len(categorical_cols))
 
 
 def render_data_explorer_main():
@@ -281,8 +253,8 @@ def render_data_explorer_main():
                     if not data.empty:
                         st.success(f"✅ 成功加载 {len(data)} 条记录")
                         
-                        # 使用Perspective渲染数据
-                        render_perspective_table(data, selected_table)
+                        # 使用Plotly渲染数据
+                        render_plotly_table(data, selected_table)
                         
                     else:
                         st.warning("⚠️ 表中没有数据或加载失败")
