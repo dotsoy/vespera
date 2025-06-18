@@ -80,13 +80,6 @@ def render_strategy_selection():
     with col2:
         st.subheader("📊 分析参数")
         
-        # 数据源选择
-        data_source = st.selectbox(
-            "数据源",
-            ["数据库数据", "模拟数据"],
-            index=0
-        )
-        
         # 分析周期
         analysis_days = st.slider("分析周期（天）", 30, 250, 120, 10)
         
@@ -109,7 +102,6 @@ def render_strategy_selection():
     return {
         "strategy_name": strategy_name,
         "strategy_params": strategy_params,
-        "data_source": data_source,
         "analysis_days": analysis_days,
         "enable_backtest": enable_backtest,
         "backtest_start": backtest_start,
@@ -443,6 +435,26 @@ def generate_signals(data: pd.DataFrame):
     # 生成卖出信号
     data['sell_signal'] = (data['RSI'] > 70) & (data['close'] > data['BB_upper'])
     return data
+
+
+def render_stock_selection():
+    """渲染股票选择界面"""
+    st.subheader("选择股票")
+    try:
+        db_manager = get_db_manager()
+        query = "SELECT ts_code, name FROM stock_basic WHERE is_hs = 'Y' ORDER BY ts_code"
+        stocks_df = db_manager.execute_postgres_query(query)
+        if not stocks_df.empty:
+            stock_options = {f"{row['ts_code']} - {row['name']}": row['ts_code'] for _, row in stocks_df.iterrows()}
+            selected_stock_names = st.multiselect("选择股票", options=list(stock_options.keys()), default=[])
+            selected_stocks = [stock_options[name] for name in selected_stock_names]
+            return selected_stocks
+        else:
+            st.error("数据库中无股票数据")
+            return []
+    except Exception as e:
+        st.error(f"获取股票列表失败: {e}")
+        return []
 
 
 def render_strategy_analysis_main():

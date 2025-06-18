@@ -473,6 +473,26 @@ def calculate_additional_indicators(data: pd.DataFrame):
     return data
 
 
+def render_stock_selection():
+    """渲染股票选择界面"""
+    st.subheader("选择股票")
+    try:
+        db_manager = get_db_manager()
+        query = "SELECT ts_code, name FROM stock_basic WHERE is_hs = 'Y' ORDER BY ts_code"
+        stocks_df = db_manager.execute_postgres_query(query)
+        if not stocks_df.empty:
+            stock_options = {f"{row['ts_code']} - {row['name']}": row['ts_code'] for _, row in stocks_df.iterrows()}
+            selected_stock_names = st.multiselect("选择股票", options=list(stock_options.keys()), default=[])
+            selected_stocks = [stock_options[name] for name in selected_stock_names]
+            return selected_stocks
+        else:
+            st.error("数据库中无股票数据")
+            return []
+    except Exception as e:
+        st.error(f"获取股票列表失败: {e}")
+        return []
+
+
 def render_backtest_visualization_main():
     """渲染回测可视化主面板"""
     st.header("📈 回测可视化分析")
