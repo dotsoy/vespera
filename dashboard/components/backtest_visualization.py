@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import sys
 from pathlib import Path
+import tulipy as ti
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent.parent
@@ -437,6 +438,39 @@ def render_monthly_performance(trades, equity_curve):
     with col4:
         worst_month = monthly_returns.min()
         st.metric("最差月份", f"{worst_month:.2f}%")
+
+
+def render_backtest_results(data: pd.DataFrame):
+    """渲染回测结果"""
+    st.subheader("📈 回测结果")
+    # 使用Plotly绘制K线图
+    fig = go.Figure(data=[go.Candlestick(x=data['date'], open=data['open'], high=data['high'], low=data['low'], close=data['close'])])
+    fig.update_layout(title='K线图', xaxis_title='日期', yaxis_title='价格')
+    st.plotly_chart(fig, use_container_width=True)
+
+    # 使用Plotly绘制RSI图
+    fig_rsi = go.Figure(data=[go.Scatter(x=data['date'], y=data['RSI'], mode='lines', name='RSI')])
+    fig_rsi.update_layout(title='RSI指标', xaxis_title='日期', yaxis_title='RSI')
+    st.plotly_chart(fig_rsi, use_container_width=True)
+
+    # 使用Plotly绘制MACD图
+    fig_macd = go.Figure(data=[go.Scatter(x=data['date'], y=data['MACD'], mode='lines', name='MACD')])
+    fig_macd.add_trace(go.Scatter(x=data['date'], y=data['MACD_signal'], mode='lines', name='MACD Signal'))
+    fig_macd.update_layout(title='MACD指标', xaxis_title='日期', yaxis_title='MACD')
+    st.plotly_chart(fig_macd, use_container_width=True)
+
+
+def calculate_additional_indicators(data: pd.DataFrame):
+    close = data['close'].values.astype(float)
+    data['RSI'] = [None]*13 + list(ti.rsi(close, 14))
+    upper, middle, lower = ti.bbands(close, 20, 2.0)
+    data['BB_upper'] = [None]*19 + list(upper)
+    data['BB_middle'] = [None]*19 + list(middle)
+    data['BB_lower'] = [None]*19 + list(lower)
+    macd, signal, _ = ti.macd(close, 12, 26, 9)
+    data['MACD'] = [None]*33 + list(macd)
+    data['MACD_signal'] = [None]*33 + list(signal)
+    return data
 
 
 def render_backtest_visualization_main():

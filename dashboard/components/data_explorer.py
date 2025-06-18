@@ -16,14 +16,6 @@ from src.utils.database import get_db_manager
 
 logger = get_logger("data_explorer")
 
-# 检查数据库可用性
-try:
-    from src.utils.database import get_db_manager
-    DB_AVAILABLE = True
-except ImportError as e:
-    logger.warning(f"数据库模块导入失败: {e}")
-    DB_AVAILABLE = False
-
 # Perspective CDN 配置（已废弃）
 # PERSPECTIVE_CDN = {
 #     'viewer': "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer/dist/cdn/perspective-viewer.js",
@@ -34,9 +26,6 @@ except ImportError as e:
 
 def get_available_tables():
     """获取可用的数据库表"""
-    if not DB_AVAILABLE:
-        return []
-    
     try:
         db_manager = get_db_manager()
         query = """
@@ -67,9 +56,6 @@ def get_available_tables():
 
 def get_table_info(table_name: str):
     """获取表的详细信息"""
-    if not DB_AVAILABLE:
-        return None
-    
     try:
         db_manager = get_db_manager()
         
@@ -135,9 +121,6 @@ def get_table_info(table_name: str):
 
 def load_table_data(table_name: str, limit: int = 1000):
     """加载表数据"""
-    if not DB_AVAILABLE:
-        return pd.DataFrame()
-    
     try:
         db_manager = get_db_manager()
         query = f"SELECT * FROM {table_name} LIMIT {limit}"
@@ -178,10 +161,6 @@ def render_data_explorer_main():
     """渲染数据探索器主界面"""
     st.header("🔍 数据探索器")
     st.markdown("使用 Perspective 进行多维度数据分析和可视化")
-    
-    if not DB_AVAILABLE:
-        st.error("❌ 数据库连接不可用，请检查配置")
-        return
     
     # 获取可用表
     tables = get_available_tables()

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import sys
 from pathlib import Path
+import tulipy as ti
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent.parent
@@ -35,39 +36,6 @@ def get_stock_data_from_db(ts_codes, days=120):
     except Exception as e:
         logger.error(f"从数据库获取股票数据失败: {e}")
         return {}
-
-
-def generate_mock_stock_data(ts_codes, days=120):
-    """生成模拟股票数据（当数据库无数据时使用）"""
-    stock_data_dict = {}
-    
-    for ts_code in ts_codes:
-        np.random.seed(hash(ts_code) % 2**32)
-        
-        dates = pd.date_range(end=datetime.now(), periods=days, freq='D')
-        
-        # 生成价格数据
-        base_price = 10 + (hash(ts_code) % 50)
-        returns = np.random.randn(days) * 0.02
-        prices = base_price * np.exp(np.cumsum(returns))
-        
-        # 生成OHLC数据
-        opens = prices * (1 + np.random.randn(days) * 0.005)
-        highs = np.maximum(opens, prices) * (1 + np.abs(np.random.randn(days)) * 0.01)
-        lows = np.minimum(opens, prices) * (1 - np.abs(np.random.randn(days)) * 0.01)
-        volumes = np.random.lognormal(15, 0.5, days)
-        
-        stock_df = pd.DataFrame({
-            'open': opens,
-            'high': highs,
-            'low': lows,
-            'close': prices,
-            'volume': volumes
-        }, index=dates)
-        
-        stock_data_dict[ts_code] = stock_df
-    
-    return stock_data_dict
 
 
 def render_strategy_selection():
@@ -158,13 +126,7 @@ def render_stock_analysis(selected_stocks, config):
     st.header(f"📊 {config['strategy_name']} 分析结果")
     
     # 获取股票数据
-    if config['data_source'] == "数据库数据":
-        stock_data_dict = get_stock_data_from_db(selected_stocks, config['analysis_days'])
-        if not stock_data_dict:
-            st.warning("数据库中无相关数据，使用模拟数据进行演示")
-            stock_data_dict = generate_mock_stock_data(selected_stocks, config['analysis_days'])
-    else:
-        stock_data_dict = generate_mock_stock_data(selected_stocks, config['analysis_days'])
+    stock_data_dict = get_stock_data_from_db(selected_stocks, config['analysis_days'])
     
     if not stock_data_dict:
         st.error("无法获取股票数据")
@@ -358,12 +320,7 @@ def render_backtest_results(config, selected_stocks):
     st.header("📈 回测分析结果")
     
     # 获取股票数据
-    if config['data_source'] == "数据库数据":
-        stock_data_dict = get_stock_data_from_db(selected_stocks, 200)  # 更长的历史数据用于回测
-        if not stock_data_dict:
-            stock_data_dict = generate_mock_stock_data(selected_stocks, 200)
-    else:
-        stock_data_dict = generate_mock_stock_data(selected_stocks, 200)
+    stock_data_dict = get_stock_data_from_db(selected_stocks, 200)  # 更长的历史数据用于回测
     
     if not stock_data_dict:
         st.error("无法获取回测数据")
@@ -459,6 +416,33 @@ def render_backtest_comparison(backtest_results):
         height=400
     )
     st.plotly_chart(fig, use_container_width=True)
+
+
+def calculate_additional_indicators(data: pd.DataFrame):
+    """用tulipy计算额外的技术指标"""
+    close = data['close'].values.astype(float)
+    # RSI
+    data['RSI'] = [None]*13 + list(ti.rsi(close, 14))
+    # 布林带
+    upper, middle, lower = ti.bbands(close, 20, 2.0)
+    data['BB_upper'] = [None]*19 + list(upper)
+    data['BB_middle'] = [None]*19 + list(middle)
+    data['BB_lower'] = [None]*19 + list(lower)
+    # MACD
+    macd, signal, _ = ti.macd(close, 12, 26, 9)
+    data['MACD'] = [None]*33 + list(macd)
+    data['MACD_signal'] = [None]*33 + list(signal)
+    return data
+
+
+def generate_signals(data: pd.DataFrame):
+    """生成交易信号"""
+    data = calculate_additional_indicators(data)
+    # 生成买入信号
+    data['buy_signal'] = (data['RSI'] < 30) & (data['close'] < data['BB_lower'])
+    # 生成卖出信号
+    data['sell_signal'] = (data['RSI'] > 70) & (data['close'] > data['BB_upper'])
+    return data
 
 
 def render_strategy_analysis_main():
