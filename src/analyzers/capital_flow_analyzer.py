@@ -37,45 +37,41 @@ class CapitalFlowAnalyzer:
             latest = df.iloc[-1]
             score = 0.0
             
-            # 大单净流入评分 (40%)
-            large_net_inflow = latest['buy_lg_amount'] - latest['sell_lg_amount']
-            total_large_amount = latest['buy_lg_amount'] + latest['sell_lg_amount']
+            # 主力净流入评分 (40%)
+            main_net_inflow = latest['main_net_inflow']
+            total_amount = latest['total_amount']
             
-            if total_large_amount > 0:
-                large_flow_ratio = large_net_inflow / total_large_amount
-                if large_flow_ratio > 0.3:
+            if total_amount > 0:
+                main_flow_ratio = main_net_inflow / total_amount
+                if main_flow_ratio > 0.3:
                     score += 0.4
-                elif large_flow_ratio > 0.1:
+                elif main_flow_ratio > 0.1:
                     score += 0.2
-                elif large_flow_ratio > 0:
+                elif main_flow_ratio > 0:
                     score += 0.1
             
             # 超大单净流入评分 (35%)
-            extra_large_net_inflow = latest['buy_elg_amount'] - latest['sell_elg_amount']
-            total_extra_large_amount = latest['buy_elg_amount'] + latest['sell_elg_amount']
+            super_large_net_inflow = latest['super_large_net_inflow']
             
-            if total_extra_large_amount > 0:
-                extra_large_flow_ratio = extra_large_net_inflow / total_extra_large_amount
-                if extra_large_flow_ratio > 0.5:
+            if total_amount > 0:
+                super_large_flow_ratio = super_large_net_inflow / total_amount
+                if super_large_flow_ratio > 0.5:
                     score += 0.35
-                elif extra_large_flow_ratio > 0.2:
+                elif super_large_flow_ratio > 0.2:
                     score += 0.2
-                elif extra_large_flow_ratio > 0:
+                elif super_large_flow_ratio > 0:
                     score += 0.1
             
             # 主力资金持续性评分 (25%)
             if len(df) >= 5:
                 recent_5_days = df.tail(5)
-                large_inflow_days = 0
+                main_inflow_days = 0
                 
                 for _, row in recent_5_days.iterrows():
-                    large_net = row['buy_lg_amount'] - row['sell_lg_amount']
-                    extra_large_net = row['buy_elg_amount'] - row['sell_elg_amount']
-                    
-                    if large_net > 0 or extra_large_net > 0:
-                        large_inflow_days += 1
+                    if row['main_net_inflow'] > 0:
+                        main_inflow_days += 1
                 
-                consistency_ratio = large_inflow_days / 5
+                consistency_ratio = main_inflow_days / 5
                 score += consistency_ratio * 0.25
             
             return min(score, 1.0)
@@ -95,51 +91,48 @@ class CapitalFlowAnalyzer:
             散户情绪评分 (0-1)
         """
         try:
-            if df.empty or len(df) < 3:
+            if df.empty or len(df) < 5:
                 return 0.0
             
             latest = df.iloc[-1]
             score = 0.0
             
-            # 小单流向评分 (50%)
-            small_net_inflow = latest['buy_sm_amount'] - latest['sell_sm_amount']
-            total_small_amount = latest['buy_sm_amount'] + latest['sell_sm_amount']
+            # 散户净流入评分 (40%)
+            retail_net_inflow = latest['retail_net_inflow']
+            total_amount = latest['total_amount']
             
-            if total_small_amount > 0:
-                small_flow_ratio = small_net_inflow / total_small_amount
-                # 散户追涨杀跌，适度流入为好
-                if -0.1 <= small_flow_ratio <= 0.2:
-                    score += 0.5
-                elif -0.2 <= small_flow_ratio <= 0.3:
-                    score += 0.3
-                elif small_flow_ratio > 0.5:  # 过度追涨
+            if total_amount > 0:
+                retail_flow_ratio = retail_net_inflow / total_amount
+                if retail_flow_ratio > 0.3:
+                    score += 0.4
+                elif retail_flow_ratio > 0.1:
+                    score += 0.2
+                elif retail_flow_ratio > 0:
                     score += 0.1
             
-            # 中单流向评分 (30%)
-            medium_net_inflow = latest['buy_md_amount'] - latest['sell_md_amount']
-            total_medium_amount = latest['buy_md_amount'] + latest['sell_md_amount']
-            
-            if total_medium_amount > 0:
-                medium_flow_ratio = medium_net_inflow / total_medium_amount
-                if 0 <= medium_flow_ratio <= 0.3:
+            # 散户资金占比评分 (30%)
+            retail_amount = latest['retail_net_inflow']
+            if total_amount > 0:
+                retail_ratio = retail_amount / total_amount
+                if retail_ratio > 0.5:
                     score += 0.3
-                elif medium_flow_ratio > 0.3:
-                    score += 0.15
+                elif retail_ratio > 0.3:
+                    score += 0.2
+                elif retail_ratio > 0.1:
+                    score += 0.1
             
-            # 散户行为稳定性评分 (20%)
+            # 散户行为稳定性评分 (30%)
             if len(df) >= 3:
                 recent_3_days = df.tail(3)
-                small_ratios = []
+                retail_ratios = []
                 
                 for _, row in recent_3_days.iterrows():
-                    small_net = row['buy_sm_amount'] - row['sell_sm_amount']
-                    small_total = row['buy_sm_amount'] + row['sell_sm_amount']
-                    if small_total > 0:
-                        small_ratios.append(small_net / small_total)
+                    if row['total_amount'] > 0:
+                        retail_ratios.append(row['retail_net_inflow'] / row['total_amount'])
                 
-                if small_ratios:
-                    stability = 1 - np.std(small_ratios)  # 标准差越小越稳定
-                    score += max(0, stability) * 0.2
+                if retail_ratios:
+                    stability = 1 - np.std(retail_ratios)  # 标准差越小越稳定
+                    score += max(0, stability) * 0.3
             
             return min(score, 1.0)
             
@@ -163,13 +156,13 @@ class CapitalFlowAnalyzer:
             
             score = 0.0
             
-            # 大单交易活跃度 (40%)
+            # 主力资金活跃度 (40%)
             recent_10_days = df.tail(10)
-            avg_large_volume = recent_10_days['buy_lg_vol'].mean() + recent_10_days['sell_lg_vol'].mean()
-            latest_large_volume = df.iloc[-1]['buy_lg_vol'] + df.iloc[-1]['sell_lg_vol']
+            avg_main_amount = recent_10_days['main_net_inflow'].abs().mean()
+            latest_main_amount = abs(df.iloc[-1]['main_net_inflow'])
             
-            if avg_large_volume > 0:
-                activity_ratio = latest_large_volume / avg_large_volume
+            if avg_main_amount > 0:
+                activity_ratio = latest_main_amount / avg_main_amount
                 if activity_ratio > 1.5:
                     score += 0.4
                 elif activity_ratio > 1.2:
@@ -177,29 +170,25 @@ class CapitalFlowAnalyzer:
                 elif activity_ratio > 1.0:
                     score += 0.2
             
-            # 超大单交易活跃度 (35%)
-            avg_extra_large_volume = recent_10_days['buy_elg_vol'].mean() + recent_10_days['sell_elg_vol'].mean()
-            latest_extra_large_volume = df.iloc[-1]['buy_elg_vol'] + df.iloc[-1]['sell_elg_vol']
+            # 超大单活跃度 (35%)
+            avg_super_large_amount = recent_10_days['super_large_net_inflow'].abs().mean()
+            latest_super_large_amount = abs(df.iloc[-1]['super_large_net_inflow'])
             
-            if avg_extra_large_volume > 0:
-                extra_activity_ratio = latest_extra_large_volume / avg_extra_large_volume
-                if extra_activity_ratio > 2.0:
+            if avg_super_large_amount > 0:
+                super_activity_ratio = latest_super_large_amount / avg_super_large_amount
+                if super_activity_ratio > 2.0:
                     score += 0.35
-                elif extra_activity_ratio > 1.5:
+                elif super_activity_ratio > 1.5:
                     score += 0.25
-                elif extra_activity_ratio > 1.0:
+                elif super_activity_ratio > 1.0:
                     score += 0.15
             
             # 机构资金集中度 (25%)
             latest = df.iloc[-1]
-            total_amount = (latest['buy_sm_amount'] + latest['sell_sm_amount'] + 
-                          latest['buy_md_amount'] + latest['sell_md_amount'] +
-                          latest['buy_lg_amount'] + latest['sell_lg_amount'] +
-                          latest['buy_elg_amount'] + latest['sell_elg_amount'])
+            total_amount = latest['total_amount']
             
             if total_amount > 0:
-                institutional_ratio = ((latest['buy_lg_amount'] + latest['sell_lg_amount'] +
-                                      latest['buy_elg_amount'] + latest['sell_elg_amount']) / total_amount)
+                institutional_ratio = (abs(latest['main_net_inflow']) + abs(latest['super_large_net_inflow'])) / total_amount
                 score += institutional_ratio * 0.25
             
             return min(score, 1.0)
@@ -228,13 +217,9 @@ class CapitalFlowAnalyzer:
             # 主力资金方向一致性 (60%)
             main_force_directions = []
             for _, row in recent_5_days.iterrows():
-                large_net = row['buy_lg_amount'] - row['sell_lg_amount']
-                extra_large_net = row['buy_elg_amount'] - row['sell_elg_amount']
-                main_net = large_net + extra_large_net
-                
-                if main_net > 0:
+                if row['main_net_inflow'] > 0:
                     main_force_directions.append(1)
-                elif main_net < 0:
+                elif row['main_net_inflow'] < 0:
                     main_force_directions.append(-1)
                 else:
                     main_force_directions.append(0)
@@ -250,7 +235,7 @@ class CapitalFlowAnalyzer:
             # 净流入趋势一致性 (40%)
             net_flows = []
             for _, row in recent_5_days.iterrows():
-                net_flow = row['net_mf_amount']
+                net_flow = row['main_net_inflow'] + row['retail_net_inflow']
                 net_flows.append(net_flow)
             
             if len(net_flows) >= 3:
@@ -345,10 +330,10 @@ class CapitalFlowAnalyzer:
         try:
             # 获取资金流数据 (最近20天)
             money_flow_query = """
-            SELECT * FROM money_flow_daily 
+            SELECT * FROM capital_flow_daily 
             WHERE ts_code = :ts_code 
-            AND trade_date <= :trade_date 
-            ORDER BY trade_date DESC 
+            AND date <= :trade_date 
+            ORDER BY date DESC 
             LIMIT 20
             """
             
@@ -361,7 +346,7 @@ class CapitalFlowAnalyzer:
                 return {}
             
             # 按日期正序排列
-            money_flow_df = money_flow_df.sort_values('trade_date')
+            money_flow_df = money_flow_df.sort_values('date')
             
             # 获取价格数据用于量价分析
             price_query = """
@@ -388,16 +373,10 @@ class CapitalFlowAnalyzer:
             # 构建分析数据
             latest = money_flow_df.iloc[-1]
             flow_analysis = {
-                'net_main_inflow': float(latest['buy_lg_amount'] + latest['buy_elg_amount'] - 
-                                       latest['sell_lg_amount'] - latest['sell_elg_amount']),
-                'net_retail_inflow': float(latest['buy_sm_amount'] + latest['buy_md_amount'] - 
-                                         latest['sell_sm_amount'] - latest['sell_md_amount']),
-                'total_turnover': float(latest['buy_sm_amount'] + latest['buy_md_amount'] + 
-                                      latest['buy_lg_amount'] + latest['buy_elg_amount']),
-                'main_force_ratio': float((latest['buy_lg_amount'] + latest['buy_elg_amount']) / 
-                                        (latest['buy_sm_amount'] + latest['buy_md_amount'] + 
-                                         latest['buy_lg_amount'] + latest['buy_elg_amount'])) if (latest['buy_sm_amount'] + latest['buy_md_amount'] + 
-                                         latest['buy_lg_amount'] + latest['buy_elg_amount']) > 0 else 0.0
+                'net_main_inflow': float(latest['main_net_inflow']),
+                'net_retail_inflow': float(latest['retail_net_inflow']),
+                'total_turnover': float(latest['total_amount']),
+                'main_force_ratio': float(latest['main_net_inflow'] / latest['total_amount']) if latest['total_amount'] > 0 else 0.0
             }
             
             result = {

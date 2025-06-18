@@ -23,14 +23,13 @@ except ImportError as e:
     logger.warning(f"数据库模块导入失败: {e}")
     DB_AVAILABLE = False
 
-# 检查Perspective可用性
-try:
-    import perspective
-    PERSPECTIVE_AVAILABLE = True
-except ImportError as e:
-    logger.warning(f"Perspective模块导入失败: {e}")
-    PERSPECTIVE_AVAILABLE = False
-
+# Perspective CDN 配置
+PERSPECTIVE_CDN = {
+    'viewer': "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer/dist/cdn/perspective-viewer.js",
+    'datagrid': "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-datagrid/dist/cdn/perspective-viewer-datagrid.js",
+    'd3fc': "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-d3fc/dist/cdn/perspective-viewer-d3fc.js",
+    'core': "https://cdn.jsdelivr.net/npm/@finos/perspective/dist/cdn/perspective.js"
+}
 
 def get_available_tables():
     """获取可用的数据库表"""
@@ -149,93 +148,38 @@ def load_table_data(table_name: str, limit: int = 1000):
 
 
 def render_perspective_table(data: pd.DataFrame, table_name: str):
-    """使用Perspective渲染数据表"""
+    """使用Perspective CDN渲染数据表"""
     if data.empty:
         st.warning("数据为空")
         return
 
     try:
+        # 注入 Perspective CDN 脚本
+        st.markdown("""
+        <script type="module">
+            import "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer/dist/cdn/perspective-viewer.js";
+            import "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-datagrid/dist/cdn/perspective-viewer-datagrid.js";
+            import "https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-d3fc/dist/cdn/perspective-viewer-d3fc.js";
+            import perspective from "https://cdn.jsdelivr.net/npm/@finos/perspective/dist/cdn/perspective.js";
+        </script>
+        """, unsafe_allow_html=True)
+
         # 配置选项
         st.subheader("📊 多维度数据分析")
 
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            # 视图类型选择
-            view_type = st.selectbox(
-                "视图类型",
-                ["表格", "柱状图", "折线图", "散点图", "热力图"],
-                index=0
-            )
-
-        with col2:
-            # 聚合字段
-            numeric_cols = data.select_dtypes(include=['number']).columns.tolist()
-            aggregates = st.multiselect(
-                "聚合字段",
-                numeric_cols,
-                default=[]
-            )
-
-        with col3:
-            # 分组字段
-            categorical_cols = data.select_dtypes(include=['object', 'category']).columns.tolist()
-            group_by = st.multiselect(
-                "分组字段",
-                categorical_cols,
-                default=[]
-            )
-
-        # 数据处理和可视化
-        if view_type == "表格":
-            # 基础表格视图
-            if group_by and aggregates:
-                # 分组聚合
-                agg_dict = {col: 'sum' for col in aggregates}
-                grouped_data = data.groupby(group_by).agg(agg_dict).reset_index()
-                st.dataframe(grouped_data, use_container_width=True)
-            else:
-                st.dataframe(data, use_container_width=True)
-
-        elif view_type == "柱状图" and aggregates and group_by:
-            import plotly.express as px
-            if len(group_by) == 1 and len(aggregates) == 1:
-                grouped_data = data.groupby(group_by[0])[aggregates[0]].sum().reset_index()
-                fig = px.bar(grouped_data, x=group_by[0], y=aggregates[0],
-                           title=f"{aggregates[0]} 按 {group_by[0]} 分组")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.warning("柱状图需要选择1个分组字段和1个聚合字段")
-
-        elif view_type == "折线图" and aggregates and group_by:
-            import plotly.express as px
-            if len(group_by) == 1 and len(aggregates) == 1:
-                grouped_data = data.groupby(group_by[0])[aggregates[0]].sum().reset_index()
-                fig = px.line(grouped_data, x=group_by[0], y=aggregates[0],
-                            title=f"{aggregates[0]} 按 {group_by[0]} 趋势")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.warning("折线图需要选择1个分组字段和1个聚合字段")
-
-        elif view_type == "散点图" and len(aggregates) >= 2:
-            import plotly.express as px
-            color_col = group_by[0] if group_by else None
-            fig = px.scatter(data, x=aggregates[0], y=aggregates[1],
-                           color=color_col, title=f"{aggregates[0]} vs {aggregates[1]}")
-            st.plotly_chart(fig, use_container_width=True)
-
-        elif view_type == "热力图" and len(numeric_cols) >= 2:
-            import plotly.express as px
-            import numpy as np
-
-            # 计算相关性矩阵
-            corr_matrix = data[numeric_cols].corr()
-            fig = px.imshow(corr_matrix, text_auto=True, aspect="auto",
-                          title="数值字段相关性热力图")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("请选择合适的字段组合进行可视化")
-            st.dataframe(data, use_container_width=True)
+        # 将数据转换为 JSON 格式
+        json_data = data.to_json(orient='records')
+        
+        # 创建 Perspective 容器
+        st.markdown(f"""
+        <perspective-viewer style="height: 600px;">
+            <script>
+                const viewer = document.querySelector('perspective-viewer');
+                const data = {json_data};
+                viewer.load(data);
+            </script>
+        </perspective-viewer>
+        """, unsafe_allow_html=True)
 
         # 显示数据统计
         st.subheader("📈 数据统计")
@@ -249,30 +193,12 @@ def render_perspective_table(data: pd.DataFrame, table_name: str):
             numeric_cols = data.select_dtypes(include=['number']).columns
             st.metric("数值列", len(numeric_cols))
         with col4:
-            missing_values = data.isnull().sum().sum()
-            st.metric("缺失值", f"{missing_values:,}")
-
-        # 显示数据类型信息
-        st.subheader("📋 字段信息")
-        field_info = []
-        for col in data.columns:
-            field_info.append({
-                "字段名": col,
-                "数据类型": str(data[col].dtype),
-                "非空值": data[col].count(),
-                "缺失值": data[col].isnull().sum(),
-                "唯一值": data[col].nunique()
-            })
-
-        field_df = pd.DataFrame(field_info)
-        st.dataframe(field_df, use_container_width=True)
+            categorical_cols = data.select_dtypes(include=['object', 'category']).columns
+            st.metric("分类列", len(categorical_cols))
 
     except Exception as e:
-        logger.error(f"数据可视化失败: {e}")
-        st.error(f"数据可视化失败: {e}")
-
-        # 降级到普通表格显示
-        st.subheader("📋 数据预览（降级模式）")
+        logger.error(f"渲染数据表失败: {e}")
+        st.error(f"渲染数据表失败: {str(e)}")
         st.dataframe(data, use_container_width=True)
 
 

@@ -4,10 +4,12 @@
 """
 import sys
 from pathlib import Path
+from sqlalchemy import create_engine, text
+from config.settings import db_settings
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+sys.path.append(str(project_root))
 
 from src.utils.database import get_db_manager
 from src.utils.logger import get_logger
@@ -16,70 +18,37 @@ logger = get_logger("create_capital_flow_table")
 
 
 def create_capital_flow_table():
-    """创建资金流向表"""
+    # 创建数据库引擎
+    engine = create_engine(db_settings.postgres_url)
+    
+    # 创建表的 SQL
+    create_table_sql = """
+    CREATE TABLE IF NOT EXISTS capital_flow_daily (
+        id SERIAL PRIMARY KEY,
+        date DATE NOT NULL,
+        stock_code VARCHAR(10) NOT NULL,
+        stock_name VARCHAR(50) NOT NULL,
+        main_net_inflow DECIMAL(20,2),
+        retail_net_inflow DECIMAL(20,2),
+        super_large_net_inflow DECIMAL(20,2),
+        large_net_inflow DECIMAL(20,2),
+        medium_net_inflow DECIMAL(20,2),
+        small_net_inflow DECIMAL(20,2),
+        total_amount DECIMAL(20,2),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(date, stock_code)
+    );
+    """
+    
     try:
-        db_manager = get_db_manager()
-        
-        # 创建资金流向表
-        create_table_sql = """
-        CREATE TABLE IF NOT EXISTS capital_flow_daily (
-            id SERIAL PRIMARY KEY,
-            ts_code VARCHAR(20) NOT NULL,
-            trade_date DATE NOT NULL,
-            main_net_inflow DECIMAL(20, 2),
-            main_net_inflow_rate DECIMAL(10, 4),
-            super_large_net_inflow DECIMAL(20, 2),
-            super_large_net_inflow_rate DECIMAL(10, 4),
-            large_net_inflow DECIMAL(20, 2),
-            large_net_inflow_rate DECIMAL(10, 4),
-            medium_net_inflow DECIMAL(20, 2),
-            medium_net_inflow_rate DECIMAL(10, 4),
-            small_net_inflow DECIMAL(20, 2),
-            small_net_inflow_rate DECIMAL(10, 4),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(ts_code, trade_date)
-        );
-        """
-        
-        db_manager.execute_postgres_command(create_table_sql)
-        logger.info("资金流向表创建成功")
-        
-        # 创建索引
-        index_sqls = [
-            "CREATE INDEX IF NOT EXISTS idx_capital_flow_ts_code ON capital_flow_daily(ts_code);",
-            "CREATE INDEX IF NOT EXISTS idx_capital_flow_trade_date ON capital_flow_daily(trade_date);",
-            "CREATE INDEX IF NOT EXISTS idx_capital_flow_ts_code_date ON capital_flow_daily(ts_code, trade_date);"
-        ]
-        
-        for sql in index_sqls:
-            db_manager.execute_postgres_command(sql)
-        
-        logger.info("资金流向表索引创建成功")
-        
-        # 插入一些示例数据
-        sample_data_sql = """
-        INSERT INTO capital_flow_daily 
-        (ts_code, trade_date, main_net_inflow, main_net_inflow_rate, 
-         super_large_net_inflow, super_large_net_inflow_rate,
-         large_net_inflow, large_net_inflow_rate,
-         medium_net_inflow, medium_net_inflow_rate,
-         small_net_inflow, small_net_inflow_rate)
-        VALUES 
-        ('000001.SZ', '2024-06-17', 1000000.00, 0.05, 500000.00, 0.025, 500000.00, 0.025, -300000.00, -0.015, -700000.00, -0.035),
-        ('000002.SZ', '2024-06-17', -500000.00, -0.02, -200000.00, -0.008, -300000.00, -0.012, 100000.00, 0.004, 400000.00, 0.016),
-        ('600000.SH', '2024-06-17', 2000000.00, 0.08, 1200000.00, 0.048, 800000.00, 0.032, -600000.00, -0.024, -1400000.00, -0.056)
-        ON CONFLICT (ts_code, trade_date) DO NOTHING;
-        """
-        
-        db_manager.execute_postgres_command(sample_data_sql)
-        logger.info("示例数据插入成功")
-        
-        return True
-        
+        # 执行创建表的 SQL
+        with engine.connect() as conn:
+            conn.execute(text(create_table_sql))
+            conn.commit()
+        print("capital_flow_daily 表创建成功！")
     except Exception as e:
-        logger.error(f"创建资金流向表失败: {e}")
-        return False
+        print(f"创建表时出错: {str(e)}")
 
 
 def create_other_missing_tables():
@@ -172,11 +141,7 @@ if __name__ == "__main__":
     logger.info("开始创建资金流向相关表...")
     
     # 创建资金流向表
-    if create_capital_flow_table():
-        logger.info("✅ 资金流向表创建成功")
-    else:
-        logger.error("❌ 资金流向表创建失败")
-        sys.exit(1)
+    create_capital_flow_table()
     
     # 创建其他表
     if create_other_missing_tables():
