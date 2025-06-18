@@ -98,7 +98,19 @@ def get_holographic_data_for_stock(ts_code: str):
             df_tech = pd.DataFrame()
 
         try:
-            query_capital = f"SELECT trade_date, main_net_inflow_rate as net_inflow_ratio, main_net_inflow as main_force_trend FROM capital_flow_daily WHERE ts_code = '{ts_code}' ORDER BY trade_date"
+            query_capital = f"""
+            SELECT 
+                date as trade_date,
+                main_net_inflow,
+                CASE 
+                    WHEN total_amount > 0 THEN main_net_inflow / total_amount 
+                    ELSE 0 
+                END as net_inflow_ratio,
+                main_net_inflow as main_force_trend 
+            FROM capital_flow_daily 
+            WHERE stock_code = '{ts_code}' 
+            ORDER BY date
+            """
             df_capital = db_manager.execute_postgres_query(query_capital)
             if not df_capital.empty:
                 df_capital['trade_date'] = pd.to_datetime(df_capital['trade_date'])
