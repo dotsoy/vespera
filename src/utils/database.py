@@ -15,6 +15,7 @@ from loguru import logger
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from config.settings import db_settings
+import datetime
 
 from src.utils.logger import get_logger
 
@@ -255,7 +256,38 @@ class DatabaseManager:
             ORDER BY (ts_code, trade_date)
             """
             self.clickhouse_client.execute(create_table_query)
-            self.clickhouse_client.insert_dataframe(f"INSERT INTO {table_name} VALUES", df)
+            
+            # 将 trade_date 字段转换为 datetime.date 类型
+            if 'trade_date' in df.columns:
+                df['trade_date'] = pd.to_datetime(df['trade_date'], errors='coerce').dt.date
+            
+            # 去重基于 trade_date 和 ts_code
+            if 'trade_date' in df.columns and 'ts_code' in df.columns:
+                initial_rows = len(df)
+                df = df.drop_duplicates(subset=['trade_date', 'ts_code'])
+                logger.info(f"去重操作: 从 {initial_rows} 条记录减少到 {len(df)} 条记录")
+            
+            # 将 DataFrame 转换为列表格式
+            data = df.to_dict('records')
+            
+            # 确保所有必需的列都存在
+            required_columns = [
+                'trade_date', 'symbol', 'open_price', 'close_price', 'high_price',
+                'low_price', 'vol', 'amount', 'amplitude', 'pct_chg',
+                'change_amount', 'turnover_rate', 'ts_code', 'pre_close'
+            ]
+            
+            # 检查并添加缺失的列
+            for record in data:
+                for col in required_columns:
+                    if col not in record:
+                        record[col] = 0.0 if col != 'symbol' and col != 'ts_code' else ''
+            
+            # 插入数据
+            self.clickhouse_client.execute(
+                f"INSERT INTO {table_name} VALUES",
+                data
+            )
             logger.info(f"成功插入 {len(df)} 条记录到 ClickHouse 表 {table_name}")
         except Exception as e:
             logger.error(f"ClickHouse DataFrame 插入失败: {e}")

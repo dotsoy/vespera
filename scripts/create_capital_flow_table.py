@@ -25,19 +25,19 @@ def create_capital_flow_table():
         create_table_sql = """
         CREATE TABLE IF NOT EXISTS capital_flow_daily (
             id SERIAL PRIMARY KEY,
-        date DATE NOT NULL,
-        stock_code VARCHAR(10) NOT NULL,
-        stock_name VARCHAR(50) NOT NULL,
-        main_net_inflow DECIMAL(20,2),
-        retail_net_inflow DECIMAL(20,2),
-        super_large_net_inflow DECIMAL(20,2),
-        large_net_inflow DECIMAL(20,2),
-        medium_net_inflow DECIMAL(20,2),
-        small_net_inflow DECIMAL(20,2),
-        total_amount DECIMAL(20,2),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(date, stock_code)
+            date DATE NOT NULL,
+            ts_code VARCHAR(10) NOT NULL,
+            stock_name VARCHAR(50) NOT NULL,
+            main_net_inflow DECIMAL(20,2),
+            retail_net_inflow DECIMAL(20,2),
+            super_large_net_inflow DECIMAL(20,2),
+            large_net_inflow DECIMAL(20,2),
+            medium_net_inflow DECIMAL(20,2),
+            small_net_inflow DECIMAL(20,2),
+            total_amount DECIMAL(20,2),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(date, ts_code)
         );
         """
         

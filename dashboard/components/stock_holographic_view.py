@@ -108,7 +108,7 @@ def get_holographic_data_for_stock(ts_code: str):
                 END as net_inflow_ratio,
                 main_net_inflow as main_force_trend 
             FROM capital_flow_daily 
-            WHERE stock_code = '{ts_code}' 
+            WHERE ts_code = '{ts_code}' 
             ORDER BY trade_date
             """
             df_capital = db_manager.execute_postgres_query(query_capital)

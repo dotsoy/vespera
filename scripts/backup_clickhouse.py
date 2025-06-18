@@ -23,12 +23,15 @@ def backup_clickhouse(tables: list = None) -> bool:
     """
     try:
         backup_dir = project_root / "backups" / "clickhouse"
+        # 清空备份文件夹
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
         backup_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_tar = backup_dir / f"clickhouse_backup_{timestamp}.tar.gz"
 
         cmd = [
-            "docker", "exec", "qiming_clickhouse",
+            "docker", "exec", "vespera-clickhouse-1",
             "clickhouse-client",
             f"--host={db_settings.clickhouse_host}",
             f"--port={db_settings.clickhouse_port}",

@@ -33,9 +33,9 @@ class DataSourceFactory:
                 clickhouse_config={
                     'host': 'localhost',
                     'port': 9000,
-                    'user': 'default',
-                    'password': '',
-                    'database': 'alltick'
+                    'user': 'qiming_user',
+                    'password': 'qiming_pass_2024',
+                    'database': 'qiming_timeseries'
                 }
             )
             self._register_source('alltick', alltick_source)

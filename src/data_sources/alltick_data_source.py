@@ -21,6 +21,7 @@ from .base_data_source import (
     DataRequest,
     DataSourceError
 )
+from .data_compatibility_layer import DataCompatibilityLayer
 
 class AllTickDataSource(BaseDataSource):
     """AllTick数据源类"""
@@ -117,17 +118,38 @@ class AllTickDataSource(BaseDataSource):
         """
         if not self.clickhouse_client:
             return None
-            
+        
         try:
-            # 计算日期范围
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=365)
+            # 优先使用 request 里的 start_date 和 end_date
+            if hasattr(request, 'start_date') and request.start_date:
+                if isinstance(request.start_date, str):
+                    start_date = datetime.strptime(request.start_date, '%Y-%m-%d').date()
+                elif isinstance(request.start_date, datetime):
+                    start_date = request.start_date.date()
+                elif isinstance(request.start_date, (pd.Timestamp,)):
+                    start_date = request.start_date.to_pydatetime().date()
+                else:
+                    start_date = request.start_date
+            else:
+                end_date = datetime.now()
+                start_date = (end_date - timedelta(days=365)).date()
+            if hasattr(request, 'end_date') and request.end_date:
+                if isinstance(request.end_date, str):
+                    end_date = datetime.strptime(request.end_date, '%Y-%m-%d').date()
+                elif isinstance(request.end_date, datetime):
+                    end_date = request.end_date.date()
+                elif isinstance(request.end_date, (pd.Timestamp,)):
+                    end_date = request.end_date.to_pydatetime().date()
+                else:
+                    end_date = request.end_date
+            else:
+                end_date = datetime.now().date()
             
             # 根据数据类型构建查询
             if request.data_type == DataType.STOCK_DAILY:
                 query = """
                 SELECT 
-                    toYYYYMMDD(trade_date) as trade_date,
+                    trade_date,
                     open_price,
                     high_price,
                     low_price,
@@ -157,8 +179,8 @@ class AllTickDataSource(BaseDataSource):
             # 执行查询
             params = {
                 'ts_code': request.symbol,
-                'start_date': start_date.strftime('%Y-%m-%d'),
-                'end_date': end_date.strftime('%Y-%m-%d')
+                'start_date': start_date,
+                'end_date': end_date
             }
             
             logger.info(f"从ClickHouse查询数据: {query}")
@@ -185,38 +207,35 @@ class AllTickDataSource(BaseDataSource):
             logger.error(f"从ClickHouse获取数据失败: {e}")
             return None
             
-    def _save_to_clickhouse(self, df: pd.DataFrame, request: DataRequest) -> bool:
-        """保存数据到ClickHouse数据库
-        
-        Args:
-            df: 数据DataFrame
-            request: 数据请求对象
-            
-        Returns:
-            bool: 是否保存成功
-        """
-        if not self.clickhouse_client or df.empty:
-            return False
-            
+    def _save_to_clickhouse(self, df: pd.DataFrame, data_type: DataType) -> bool:
+        """保存数据到 ClickHouse"""
         try:
-            # 根据数据类型选择表名
-            if request.data_type == DataType.STOCK_DAILY:
-                table = 'daily_quotes'
-            elif request.data_type == DataType.STOCK_BASIC:
-                table = 'stock_basic'
-            else:
-                return False
-                
-            # 保存数据
-            self.clickhouse_client.execute(
-                f"INSERT INTO {table} VALUES",
-                df.to_dict('records')
-            )
-            logger.info(f"数据已保存到ClickHouse表 {table}")
-            return True
+            # 使用数据兼容层转换数据
+            transformed_df = DataCompatibilityLayer.transform_data(df, data_type, 'alltick')
             
+            # 验证转换后的数据
+            if not DataCompatibilityLayer.validate_data(transformed_df, data_type):
+                logger.error("数据验证失败")
+                return False
+            
+            table = DataCompatibilityLayer.get_table_name(data_type)
+            
+            # 构建完整的 INSERT 语句
+            columns = ', '.join(transformed_df.columns)
+            placeholders = ', '.join(['%(' + col + ')s' for col in transformed_df.columns])
+            insert_sql = f"""
+            INSERT INTO {table} ({columns}) VALUES ({placeholders})
+            """
+            
+            # 执行插入
+            records = transformed_df.to_dict('records')
+            self.clickhouse_client.execute(insert_sql, records)
+            
+            logger.info(f"✅ 成功保存 {len(transformed_df)} 条 {data_type.value} 数据到 ClickHouse")
+            return True
+                
         except Exception as e:
-            logger.error(f"保存数据到ClickHouse失败: {e}")
+            logger.error(f"保存数据到 ClickHouse 失败: {e}")
             return False
             
     def _calculate_trading_days(self) -> int:
@@ -369,7 +388,7 @@ class AllTickDataSource(BaseDataSource):
                 
             if df is not None and not df.empty:
                 # 保存到ClickHouse
-                self._save_to_clickhouse(df, request)
+                self._save_to_clickhouse(df, request.data_type)
                 return df
                 
             return None

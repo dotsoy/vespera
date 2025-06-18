@@ -35,7 +35,7 @@ def restore_clickhouse(backup_file: str = None) -> bool:
             tar.extractall(path=extract_dir)
         # 1. 先执行所有 .sql 建表语句（用 shell 保证无转义）
         for sql_file in sorted(extract_dir.glob("*.sql")):
-            shell_cmd = f"cat '{sql_file}' | docker exec -i qiming_clickhouse clickhouse-client --host={db_settings.clickhouse_host} --port={db_settings.clickhouse_port} --user={db_settings.clickhouse_user} --password={db_settings.clickhouse_password} --database={db_settings.clickhouse_db}"
+            shell_cmd = f"cat '{sql_file}' | docker exec -i vespera-clickhouse-1 clickhouse-client --host={db_settings.clickhouse_host} --port={db_settings.clickhouse_port} --user={db_settings.clickhouse_user} --password={db_settings.clickhouse_password} --database={db_settings.clickhouse_db}"
             ret = os.system(shell_cmd)
             if ret != 0:
                 # 检查是否为 TABLE_ALREADY_EXISTS 错误
@@ -51,9 +51,34 @@ def restore_clickhouse(backup_file: str = None) -> bool:
         for tsv_file in sorted(extract_dir.glob("*.tsv")):
             # 正确提取表名（支持下划线表名）
             table_name = '_'.join(tsv_file.name.split('_')[:-2])
-            with open(tsv_file, "r") as f:
+            # 清空表
+            subprocess.run([
+                "docker", "exec", "-i", "vespera-clickhouse-1",
+                "clickhouse-client",
+                f"--host={db_settings.clickhouse_host}",
+                f"--port={db_settings.clickhouse_port}",
+                f"--user={db_settings.clickhouse_user}",
+                f"--password={db_settings.clickhouse_password}",
+                f"--database={db_settings.clickhouse_db}",
+                "--query", f"TRUNCATE TABLE {table_name}"
+            ], check=True)
+            logger.info(f"表已清空: {table_name}")
+            # 转换日期格式
+            temp_file = tsv_file.with_suffix('.temp.tsv')
+            with open(tsv_file, 'r') as f_in, open(temp_file, 'w') as f_out:
+                for line in f_in:
+                    # 将 YYYY-MM-DD 格式转换为 YYYYMMDD
+                    parts = line.split('\t')
+                    if len(parts) > 0:
+                        date_str = parts[0]
+                        if '-' in date_str:
+                            date_parts = date_str.split('-')
+                            parts[0] = f"{date_parts[0]}{date_parts[1]}{date_parts[2]}"
+                    f_out.write('\t'.join(parts))
+            # 导入转换后的数据
+            with open(temp_file, "r") as f:
                 subprocess.run([
-                    "docker", "exec", "-i", "qiming_clickhouse",
+                    "docker", "exec", "-i", "vespera-clickhouse-1",
                     "clickhouse-client",
                     f"--host={db_settings.clickhouse_host}",
                     f"--port={db_settings.clickhouse_port}",
@@ -62,6 +87,8 @@ def restore_clickhouse(backup_file: str = None) -> bool:
                     f"--database={db_settings.clickhouse_db}",
                     "--query", f"INSERT INTO {table_name} FORMAT TabSeparated"
                 ], stdin=f, check=True)
+            # 清理临时文件
+            temp_file.unlink()
             logger.info(f"数据导入完成: {tsv_file.name}")
         shutil.rmtree(extract_dir)
         logger.info(f"数据库恢复完成: {backup_file}")

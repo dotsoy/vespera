@@ -58,7 +58,9 @@ logs:
 dashboard:
 	@echo "🚀 启动 Streamlit 仪表盘..."
 	@echo "📍 访问地址: http://localhost:8501"
-	@echo "�� Marimo研究室已集成到侧边栏"
+	@echo "📊 Marimo研究室已集成到侧边栏"
+	@echo "🔄 正在恢复数据库..."
+	@python scripts/restore_clickhouse.py
 	@if [ -d ".venv" ]; then \
 		source .venv/bin/activate && streamlit run dashboard/app.py; \
 	else \
