@@ -83,6 +83,7 @@ class DataSourceType(str, Enum):
         JQDATA: JoinQuant数据源 (付费, 中国市场数据)
         RQDATA: RiceQuant数据源 (付费, 中国市场数据)
         TUSHAREPRO: Tushare Pro数据源 (付费, 专业版)
+        ALLTICK: AllTick数据源 (付费, 中国市场数据)
         CUSTOM: 自定义数据源
     """
     AKSHARE = "akshare"  # AkShare数据源 - 开源金融数据接口库
@@ -92,12 +93,13 @@ class DataSourceType(str, Enum):
     JQDATA = "jqdata"  # 聚宽数据 - 量化交易数据服务
     RQDATA = "rqdata"  # 米筐数据 - 量化金融数据服务
     TUSHAREPRO = "tusharepro"  # Tushare Pro数据源 - Tushare专业版
+    ALLTICK = "alltick"  # AllTick数据源 - 专业行情数据服务
     CUSTOM = "custom"  # 自定义数据源 - 用户自定义数据源
     
     # 按特性分组的数据源
     _FREE_SOURCES = {AKSHARE, TUSHARE, YAHOO, BAOSTOCK}
-    _PAID_SOURCES = {JQDATA, RQDATA, TUSHAREPRO}
-    _CHINA_MARKET_SOURCES = {AKSHARE, TUSHARE, BAOSTOCK, JQDATA, RQDATA, TUSHAREPRO}
+    _PAID_SOURCES = {JQDATA, RQDATA, TUSHAREPRO, ALLTICK}
+    _CHINA_MARKET_SOURCES = {AKSHARE, TUSHARE, BAOSTOCK, JQDATA, RQDATA, TUSHAREPRO, ALLTICK}
     _GLOBAL_MARKET_SOURCES = {YAHOO}
     
     @classmethod
@@ -151,6 +153,7 @@ class DataType(str, Enum):
     - *_daily, *_minute: 特定时间框架的数据
     """
     # 股票数据类型
+    DAILY_QUOTES = "daily_quotes"  # 日行情数据
     STOCK_DAILY = "stock_daily"  # 股票日线数据
     STOCK_MINUTE = "stock_minute"  # 股票分钟线数据
     STOCK_TICK = "stock_tick"  # 股票tick数据
@@ -178,6 +181,7 @@ class DataType(str, Enum):
     STOCK_ESTIMATE = "stock_estimate"  # 分析师预测
     
     # 指数数据类型
+    INDEX_DATA = "index_data"  # 指数数据
     INDEX_DAILY = "index_daily"  # 指数日线数据
     INDEX_COMPONENT = "index_component"  # 指数成分股
     STOCK_INDEX = "stock_index"  # 股票指数

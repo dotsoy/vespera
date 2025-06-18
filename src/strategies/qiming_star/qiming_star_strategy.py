@@ -153,8 +153,6 @@ class QimingStarStrategy:
             回测结果字典
         """
         try:
-            self.logger.info("开始策略回测")
-            
             # 准备策略配置
             strategies_config = [
                 {
@@ -186,7 +184,6 @@ class QimingStarStrategy:
                 strategies_config, stock_data_dict, start_date, end_date
             )
             
-            self.logger.info("回测完成")
             return results
             
         except Exception as e:

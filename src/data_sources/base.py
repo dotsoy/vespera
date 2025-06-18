@@ -22,8 +22,8 @@ from pydantic import BaseModel, Field, validator
 
 from .enums import DataSourceStatus, DataSourceType, DataType
 from .exceptions.base import (
-    DataSourceError, RateLimitError, AuthenticationError,
-    NetworkError, ValidationError, ConfigurationError
+    DataSourceError, DataSourceRateLimitError, DataSourceAuthenticationError,
+    DataSourceConnectionError, DataSourceValidationError, DataSourceConfigurationError
 )
 
 # 类型变量和类型别名

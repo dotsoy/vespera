@@ -64,7 +64,7 @@ def get_holographic_data_for_stock(ts_code: str):
         # 获取日线数据
         df_quotes = data_service.get_data(
             request=DataRequest(
-                data_type=DataType.DAILY_QUOTES,
+                data_type=DataType.STOCK_DAILY,
                 symbol=ts_code,
                 start_date=start_date,
                 end_date=end_date
@@ -100,7 +100,7 @@ def get_holographic_data_for_stock(ts_code: str):
         try:
             query_capital = f"""
             SELECT 
-                date as trade_date,
+                trade_date,
                 main_net_inflow,
                 CASE 
                     WHEN total_amount > 0 THEN main_net_inflow / total_amount 
@@ -109,7 +109,7 @@ def get_holographic_data_for_stock(ts_code: str):
                 main_net_inflow as main_force_trend 
             FROM capital_flow_daily 
             WHERE stock_code = '{ts_code}' 
-            ORDER BY date
+            ORDER BY trade_date
             """
             df_capital = db_manager.execute_postgres_query(query_capital)
             if not df_capital.empty:
@@ -321,6 +321,21 @@ def render_stock_holographic_view_main():
                     
                     # 渲染关联数据深度探索
                     render_linked_data_explorer(df_holographic)
+
+                    # 在关联数据浏览器下方添加策略激活按钮
+                    if not df_holographic.empty:
+                        st.markdown("---")
+                        st.subheader("策略激活")
+                        if st.button("激活启明星策略", key=f"activate_{selected_ts_code}"):
+                            try:
+                                # 直接调用本地策略激活函数
+                                from src.strategies.qiming_star import QimingStarStrategy
+                                strategy = QimingStarStrategy()
+                                # 这里可以传递 selected_ts_code 或其他参数
+                                # 例如：strategy.run_for_stock(selected_ts_code)
+                                st.success("策略已激活！")
+                            except Exception as e:
+                                st.error(f"激活异常: {e}")
                 else:
                     st.warning("⚠️ 暂无该股票的详细数据")
     else:

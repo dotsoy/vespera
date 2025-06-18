@@ -28,14 +28,23 @@ class DataSourceFactory:
         """初始化所有数据源"""
         # 初始化 AllTick 数据源
         try:
-            alltick_source = AllTickDataSource(api_token='5d77b3af30d6b74b6bad3340996cb399-c-app')
-            if alltick_source.initialize():
-                self._register_source('alltick', alltick_source)
-                logger.info("AllTick 数据源初始化成功")
-            else:
-                logger.warning("AllTick 数据源初始化失败")
+            alltick_source = AllTickDataSource(
+                api_token='5d77b3af30d6b74b6bad3340996cb399-c-app',
+                clickhouse_config={
+                    'host': 'localhost',
+                    'port': 9000,
+                    'user': 'default',
+                    'password': '',
+                    'database': 'alltick'
+                }
+            )
+            self._register_source('alltick', alltick_source)
+            logger.info("AllTick 数据源初始化成功")
         except Exception as e:
             logger.error(f"AllTick 数据源初始化失败: {e}")
+            logger.error(f"错误详情: {str(e)}")
+            import traceback
+            logger.error(f"堆栈跟踪: {traceback.format_exc()}")
         
     def _register_source(self, name: str, source: Union[str, BaseDataSource], class_name: Optional[str] = None) -> bool:
         """注册数据源

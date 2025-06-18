@@ -14,8 +14,8 @@ import os
 from loguru import logger
 import psycopg2
 from psycopg2.extras import RealDictCursor
-
 from config.settings import db_settings
+
 from src.utils.logger import get_logger
 
 logger = get_logger("database")
@@ -38,11 +38,35 @@ class DatabaseManager:
     """数据库管理器"""
     
     def __init__(self):
+        """初始化数据库管理器"""
         self._postgres_engine = None
         self._clickhouse_client = None
         self._redis_client = None
         self._session_factory = None
-        
+    
+    @property
+    def clickhouse_client(self) -> Any:
+        """获取 ClickHouse 客户端连接"""
+        try:
+            from clickhouse_driver import Client
+            
+            # 使用原生协议连接
+            client = Client(
+                host=db_settings.clickhouse_host,
+                port=db_settings.clickhouse_port,
+                database=db_settings.clickhouse_db,
+                user=db_settings.clickhouse_user,
+                password=db_settings.clickhouse_password
+            )
+            
+            # 测试连接
+            client.execute('SELECT 1')
+            logger.info("ClickHouse 连接已建立")
+            return client
+        except Exception as e:
+            logger.error(f"ClickHouse 连接失败: {e}")
+            return None
+    
     @property
     def postgres_engine(self):
         """PostgreSQL 引擎"""
@@ -58,21 +82,6 @@ class DatabaseManager:
             )
             logger.info("PostgreSQL 连接已建立")
         return self._postgres_engine
-    
-    @property
-    def clickhouse_client(self):
-        """ClickHouse 客户端"""
-        if self._clickhouse_client is None:
-            self._clickhouse_client = ClickHouseClient(
-                host=db_settings.clickhouse_host,
-                port=db_settings.clickhouse_port,
-                database=db_settings.clickhouse_db,
-                user=db_settings.clickhouse_user,
-                password=db_settings.clickhouse_password,
-                settings={'use_numpy': True}
-            )
-            logger.info("ClickHouse 连接已建立")
-        return self._clickhouse_client
     
     @property
     def redis_client(self):

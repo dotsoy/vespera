@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import psutil
 import sys
 from pathlib import Path
+import requests
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent.parent
@@ -181,7 +182,6 @@ def render_system_overview():
     # 获取系统信息
     system_info = get_system_info()
     db_status = get_database_status()
-    strategies = get_available_strategies()
     
     # 系统资源状态
     col1, col2, col3, col4 = st.columns(4)
@@ -223,10 +223,9 @@ def render_system_overview():
             st.metric("磁盘使用率", "N/A")
     
     with col4:
-        active_strategies = len([s for s in strategies if s["status"] == "active"])
         st.metric(
             "可用策略",
-            f"{active_strategies}",
+            f"{len(get_available_strategies())}",
             delta="个策略就绪"
         )
 
@@ -285,33 +284,6 @@ def render_database_status():
             st.plotly_chart(fig, use_container_width=True)
     else:
         st.warning("无法获取数据表信息，请检查数据库连接")
-
-
-def render_strategy_status():
-    """渲染策略状态"""
-    st.header("🎯 策略状态")
-    
-    strategies = get_available_strategies()
-    
-    if strategies:
-        for strategy in strategies:
-            with st.expander(f"📈 {strategy['name']} v{strategy['version']}", expanded=True):
-                col1, col2, col3 = st.columns([2, 1, 1])
-                
-                with col1:
-                    st.write(f"**描述**: {strategy['description']}")
-                    st.write(f"**最后运行**: {strategy['last_run'].strftime('%Y-%m-%d %H:%M:%S')}")
-                
-                with col2:
-                    status_color = "🟢" if strategy['status'] == 'active' else "🔴"
-                    st.write(f"**状态**: {status_color} {strategy['status']}")
-                
-                with col3:
-                    if st.button(f"🚀 运行", key=f"run_{strategy['name']}"):
-                        st.success(f"正在运行 {strategy['name']}...")
-                        # 这里可以添加实际的策略运行逻辑
-    else:
-        st.warning("未找到可用策略")
 
 
 def render_system_logs():
@@ -381,13 +353,12 @@ def render_system_actions():
             # 生成系统状态报告
             system_info = get_system_info()
             db_status = get_database_status()
-            strategies = get_available_strategies()
             
             report = {
                 "生成时间": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 "系统资源": system_info,
                 "数据库状态": db_status,
-                "策略数量": len(strategies)
+                "策略数量": len(get_available_strategies())
             }
             
             st.json(report)
@@ -401,10 +372,6 @@ def render_system_status_main():
     
     # 数据库状态
     render_database_status()
-    st.markdown("---")
-    
-    # 策略状态
-    render_strategy_status()
     st.markdown("---")
     
     # 系统操作

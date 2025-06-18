@@ -32,13 +32,36 @@ class AllTickDataSource(BaseDataSource):
             api_token: API令牌
             clickhouse_config: ClickHouse数据库配置
         """
-        super().__init__(name="alltick", source_type=DataSourceType.ALLTICK)
+        super().__init__(name="alltick", source_type=DataSourceType.CUSTOM)
         self.api_token = api_token
         self.base_url = 'https://quote.alltick.io/quote-stock-b-api'
+        # 只保留A股股票相关数据类型
         self.supported_data_types = [
-            DataType.DAILY_QUOTES,
+            DataType.STOCK_DAILY,
             DataType.STOCK_BASIC,
-            DataType.INDEX_DATA
+            DataType.STOCK_MINUTE,
+            DataType.STOCK_TICK,
+            DataType.STOCK_ADJ_FACTOR,
+            DataType.STOCK_COMPANY,
+            DataType.STOCK_MANAGER,
+            DataType.STOCK_REWARD,
+            DataType.STOCK_FINANCIAL,
+            DataType.STOCK_INDUSTRY,
+            DataType.STOCK_CONCEPT,
+            DataType.STOCK_HOLDER,
+            DataType.STOCK_SHARE,
+            DataType.STOCK_MONEYFLOW,
+            DataType.STOCK_MARGIN,
+            DataType.STOCK_SHORT,
+            DataType.STOCK_BLOCKTRADE,
+            DataType.STOCK_REPO,
+            DataType.STOCK_FUNDAMENTAL,
+            DataType.STOCK_NEWS,
+            DataType.STOCK_ANNOUNCEMENT,
+            DataType.STOCK_REPORT,
+            DataType.STOCK_FORECAST,
+            DataType.STOCK_EXPECTATION,
+            DataType.STOCK_ESTIMATE
         ]
         
         # 初始化ClickHouse客户端
@@ -101,7 +124,7 @@ class AllTickDataSource(BaseDataSource):
             start_date = end_date - timedelta(days=365)
             
             # 根据数据类型构建查询
-            if request.data_type == DataType.DAILY_QUOTES:
+            if request.data_type == DataType.STOCK_DAILY:
                 query = """
                 SELECT 
                     toYYYYMMDD(trade_date) as trade_date,
@@ -128,21 +151,6 @@ class AllTickDataSource(BaseDataSource):
                 FROM stock_basic
                 WHERE ts_code = %(ts_code)s
                 """
-            elif request.data_type == DataType.INDEX_DATA:
-                query = """
-                SELECT 
-                    toYYYYMMDD(trade_date) as trade_date,
-                    open_price,
-                    high_price,
-                    low_price,
-                    close_price,
-                    vol,
-                    amount
-                FROM index_data
-                WHERE ts_code = %(ts_code)s
-                AND trade_date BETWEEN %(start_date)s AND %(end_date)s
-                ORDER BY trade_date DESC
-                """
             else:
                 return None
                 
@@ -166,7 +174,7 @@ class AllTickDataSource(BaseDataSource):
             df = pd.DataFrame(result, columns=[
                 'trade_date', 'open_price', 'high_price', 'low_price',
                 'close_price', 'vol', 'amount'
-            ] if request.data_type in [DataType.DAILY_QUOTES, DataType.INDEX_DATA] else [
+            ] if request.data_type == DataType.STOCK_DAILY else [
                 'ts_code', 'name', 'industry', 'area', 'market', 'list_date'
             ])
             
@@ -192,25 +200,19 @@ class AllTickDataSource(BaseDataSource):
             
         try:
             # 根据数据类型选择表名
-            if request.data_type == DataType.DAILY_QUOTES:
+            if request.data_type == DataType.STOCK_DAILY:
                 table = 'daily_quotes'
             elif request.data_type == DataType.STOCK_BASIC:
                 table = 'stock_basic'
-            elif request.data_type == DataType.INDEX_DATA:
-                table = 'index_data'
             else:
                 return False
                 
-            # 准备数据
-            data = df.to_dict('records')
-            
-            # 插入数据
+            # 保存数据
             self.clickhouse_client.execute(
-                f'INSERT INTO {table} VALUES',
-                data
+                f"INSERT INTO {table} VALUES",
+                df.to_dict('records')
             )
-            
-            logger.info(f"成功保存 {len(data)} 条数据到ClickHouse")
+            logger.info(f"数据已保存到ClickHouse表 {table}")
             return True
             
         except Exception as e:
@@ -344,40 +346,37 @@ class AllTickDataSource(BaseDataSource):
         Returns:
             Optional[pd.DataFrame]: 数据DataFrame
         """
-        if not self.status:
-            raise DataSourceError("数据源未初始化", "alltick")
-            
-        if request.data_type not in self.supported_data_types:
-            raise DataSourceError(f"不支持的数据类型: {request.data_type}", "alltick")
-            
         try:
-            # 首先尝试从ClickHouse获取数据
+            # 检查数据类型是否支持
+            if request.data_type not in self.supported_data_types:
+                logger.warning(f"不支持的数据类型: {request.data_type}")
+                return None
+                
+            # 尝试从ClickHouse获取数据
             df = self._get_from_clickhouse(request)
             if df is not None and not df.empty:
-                logger.info("从ClickHouse获取数据成功")
                 return df
                 
-            # 如果ClickHouse中没有数据，则从API获取
+            # 如果ClickHouse中没有数据，从API获取
             logger.info("ClickHouse中未找到数据，从API获取")
             
-            if request.data_type == DataType.DAILY_QUOTES:
+            if request.data_type == DataType.STOCK_DAILY:
                 df = self._fetch_daily_quotes(request)
             elif request.data_type == DataType.STOCK_BASIC:
                 df = self._fetch_stock_basic(request)
-            elif request.data_type == DataType.INDEX_DATA:
-                df = self._fetch_index_data(request)
             else:
-                raise DataSourceError(f"不支持的数据类型: {request.data_type}", "alltick")
+                return None
                 
-            # 将获取到的数据保存到ClickHouse
             if df is not None and not df.empty:
+                # 保存到ClickHouse
                 self._save_to_clickhouse(df, request)
+                return df
                 
-            return df
+            return None
             
         except Exception as e:
             logger.error(f"获取数据失败: {e}")
-            raise DataSourceError(f"获取数据失败: {e}", "alltick")
+            return None
             
     def _fetch_daily_quotes(self, request: DataRequest) -> pd.DataFrame:
         """获取日线行情数据

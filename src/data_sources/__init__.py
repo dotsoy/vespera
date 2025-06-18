@@ -17,8 +17,8 @@ from .enums import DataType, DataSourceType, DataSourceStatus
 
 # 导入异常类
 from .exceptions.base import (
-    DataSourceError, RateLimitError, AuthenticationError, 
-    NetworkError, ValidationError, ConfigurationError
+    DataSourceError, DataSourceRateLimitError, DataSourceAuthenticationError, 
+    DataSourceConnectionError, DataSourceValidationError, DataSourceConfigurationError
 )
 
 # 导入基础数据源类
@@ -46,7 +46,7 @@ from .simple_data_client import SimpleDataClient, get_simple_client
 __all__ = [
     'BaseDataSource', 'DataRequest', 'DataResponse', 'DataType',
     'DataSourceType', 'DataSourceStatus', 'DataSourceError',
-    'RateLimitError', 'AuthenticationError', 'NetworkError',
+    'DataSourceRateLimitError', 'DataSourceAuthenticationError', 'DataSourceConnectionError',
     'DataSourceFactory', 'DataSourceManager', 'get_data_service',
     'AkShareDataSource', 'AKSHARE_AVAILABLE',
     'SimpleDataClient', 'get_simple_client'
