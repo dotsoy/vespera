@@ -288,7 +288,7 @@ class AllTickDataSource(BaseDataSource):
         except Exception as e:
             logger.error(f"测试API连接失败: {e}")
             return False
-            
+        
     def initialize(self) -> bool:
         """初始化数据源
         

@@ -20,11 +20,11 @@ logger = get_logger("create_capital_flow_table")
 def create_capital_flow_table():
     # 创建数据库引擎
     engine = create_engine(db_settings.postgres_url)
-    
+        
     # 创建表的 SQL
-    create_table_sql = """
-    CREATE TABLE IF NOT EXISTS capital_flow_daily (
-        id SERIAL PRIMARY KEY,
+        create_table_sql = """
+        CREATE TABLE IF NOT EXISTS capital_flow_daily (
+            id SERIAL PRIMARY KEY,
         date DATE NOT NULL,
         stock_code VARCHAR(10) NOT NULL,
         stock_name VARCHAR(50) NOT NULL,
@@ -38,9 +38,9 @@ def create_capital_flow_table():
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(date, stock_code)
-    );
-    """
-    
+        );
+        """
+        
     try:
         # 执行创建表的 SQL
         with engine.connect() as conn:
