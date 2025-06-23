@@ -1,6 +1,6 @@
 # 启明星项目 Makefile (四维分析系统)
 
-.PHONY: help install start stop restart logs clean test dashboard sample-data test-system
+.PHONY: help install start stop restart logs clean test dashboard sample-data test-system venv
 
 # 变量定义
 PYTHON = python3
@@ -169,3 +169,14 @@ restore-file:
 	@echo "恢复数据库..."
 	$(DOCKER_COMPOSE) exec -T postgres psql -U qiming_user qiming_star < $(BACKUP_FILE)
 	@echo "恢复完成"
+
+# 创建虚拟环境
+venv:
+	@if [ ! -d ".venv" ]; then \
+		$(PYTHON) -m venv .venv; \
+		echo "✅ 虚拟环境 .venv 已创建"; \
+	else \
+		echo "✅ 虚拟环境 .venv 已存在"; \
+	fi
+	@echo "要激活虚拟环境，请运行："
+	@echo "source .venv/bin/activate"
