@@ -36,6 +36,7 @@ help:
 	@echo "  test-tulipy - 测试 Tulipy 技术分析库"
 	@echo "  clean       - 清理临时文件"
 	@echo "  backup      - 备份数据库"
+	@echo "  cleanup-backups - 清理过期备份，只保留最新"
 	@echo "  init-db     - 初始化数据库"
 
 # 安装依赖
@@ -153,6 +154,12 @@ backup:
 	mkdir -p data/backups
 	$(DOCKER_COMPOSE) exec postgres pg_dump -U qiming_user qiming_star > data/backups/backup_$(shell date +%Y%m%d_%H%M%S).sql
 	@echo "备份完成"
+
+# 清理过期备份
+cleanup-backups:
+	@echo "清理过期备份，只保留最新备份..."
+	$(PYTHON) scripts/cleanup_old_backups.py
+	@echo "备份清理完成"
 
 # 恢复数据库
 restore:

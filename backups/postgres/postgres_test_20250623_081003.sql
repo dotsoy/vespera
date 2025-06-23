@@ -5,7 +5,7 @@
 -- Dumped from database version 15.13
 -- Dumped by pg_dump version 15.13
 
--- Started on 2025-06-22 23:42:17 UTC
+-- Started on 2025-06-23 00:10:03 UTC
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -105,7 +105,7 @@ DROP FUNCTION public.update_updated_at_column();
 DROP EXTENSION "uuid-ossp";
 DROP EXTENSION pg_trgm;
 --
--- TOC entry 3 (class 3079 OID 16396)
+-- TOC entry 3 (class 3079 OID 43368)
 -- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -122,7 +122,7 @@ COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching
 
 
 --
--- TOC entry 2 (class 3079 OID 16385)
+-- TOC entry 2 (class 3079 OID 43449)
 -- Name: uuid-ossp; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -139,7 +139,7 @@ COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UU
 
 
 --
--- TOC entry 286 (class 1255 OID 16594)
+-- TOC entry 297 (class 1255 OID 43460)
 -- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -158,7 +158,7 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- TOC entry 238 (class 1259 OID 24806)
+-- TOC entry 216 (class 1259 OID 43461)
 -- Name: capital_flow_daily; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -183,7 +183,7 @@ CREATE TABLE public.capital_flow_daily (
 
 
 --
--- TOC entry 237 (class 1259 OID 24805)
+-- TOC entry 217 (class 1259 OID 43466)
 -- Name: capital_flow_daily_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -198,7 +198,7 @@ CREATE SEQUENCE public.capital_flow_daily_id_seq
 
 --
 -- TOC entry 3671 (class 0 OID 0)
--- Dependencies: 237
+-- Dependencies: 217
 -- Name: capital_flow_daily_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -206,7 +206,7 @@ ALTER SEQUENCE public.capital_flow_daily_id_seq OWNED BY public.capital_flow_dai
 
 
 --
--- TOC entry 223 (class 1259 OID 16517)
+-- TOC entry 218 (class 1259 OID 43467)
 -- Name: capital_flow_profiles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -225,7 +225,7 @@ CREATE TABLE public.capital_flow_profiles (
 
 
 --
--- TOC entry 222 (class 1259 OID 16516)
+-- TOC entry 219 (class 1259 OID 43473)
 -- Name: capital_flow_profiles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -240,7 +240,7 @@ CREATE SEQUENCE public.capital_flow_profiles_id_seq
 
 --
 -- TOC entry 3672 (class 0 OID 0)
--- Dependencies: 222
+-- Dependencies: 219
 -- Name: capital_flow_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -248,7 +248,7 @@ ALTER SEQUENCE public.capital_flow_profiles_id_seq OWNED BY public.capital_flow_
 
 
 --
--- TOC entry 236 (class 1259 OID 24789)
+-- TOC entry 220 (class 1259 OID 43474)
 -- Name: data_update_log; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -259,12 +259,12 @@ CREATE TABLE public.data_update_log (
     status character varying(20) NOT NULL,
     message text,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT data_update_log_status_check CHECK (((status)::text = ANY ((ARRAY['started'::character varying, 'completed'::character varying, 'failed'::character varying])::text[])))
+    CONSTRAINT data_update_log_status_check CHECK (((status)::text = ANY (ARRAY[('started'::character varying)::text, ('completed'::character varying)::text, ('failed'::character varying)::text])))
 );
 
 
 --
--- TOC entry 235 (class 1259 OID 24788)
+-- TOC entry 221 (class 1259 OID 43482)
 -- Name: data_update_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -279,7 +279,7 @@ CREATE SEQUENCE public.data_update_log_id_seq
 
 --
 -- TOC entry 3673 (class 0 OID 0)
--- Dependencies: 235
+-- Dependencies: 221
 -- Name: data_update_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -287,7 +287,7 @@ ALTER SEQUENCE public.data_update_log_id_seq OWNED BY public.data_update_log.id;
 
 
 --
--- TOC entry 244 (class 1259 OID 24842)
+-- TOC entry 222 (class 1259 OID 43483)
 -- Name: financial_indicators_quarterly; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -311,7 +311,7 @@ CREATE TABLE public.financial_indicators_quarterly (
 
 
 --
--- TOC entry 243 (class 1259 OID 24841)
+-- TOC entry 223 (class 1259 OID 43488)
 -- Name: financial_indicators_quarterly_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -326,7 +326,7 @@ CREATE SEQUENCE public.financial_indicators_quarterly_id_seq
 
 --
 -- TOC entry 3674 (class 0 OID 0)
--- Dependencies: 243
+-- Dependencies: 223
 -- Name: financial_indicators_quarterly_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -334,7 +334,7 @@ ALTER SEQUENCE public.financial_indicators_quarterly_id_seq OWNED BY public.fina
 
 
 --
--- TOC entry 225 (class 1259 OID 16529)
+-- TOC entry 224 (class 1259 OID 43489)
 -- Name: fundamental_profiles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -352,7 +352,7 @@ CREATE TABLE public.fundamental_profiles (
 
 
 --
--- TOC entry 224 (class 1259 OID 16528)
+-- TOC entry 225 (class 1259 OID 43495)
 -- Name: fundamental_profiles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -367,7 +367,7 @@ CREATE SEQUENCE public.fundamental_profiles_id_seq
 
 --
 -- TOC entry 3675 (class 0 OID 0)
--- Dependencies: 224
+-- Dependencies: 225
 -- Name: fundamental_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -375,7 +375,7 @@ ALTER SEQUENCE public.fundamental_profiles_id_seq OWNED BY public.fundamental_pr
 
 
 --
--- TOC entry 229 (class 1259 OID 16553)
+-- TOC entry 226 (class 1259 OID 43496)
 -- Name: macro_profiles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -392,7 +392,7 @@ CREATE TABLE public.macro_profiles (
 
 
 --
--- TOC entry 228 (class 1259 OID 16552)
+-- TOC entry 227 (class 1259 OID 43502)
 -- Name: macro_profiles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -407,7 +407,7 @@ CREATE SEQUENCE public.macro_profiles_id_seq
 
 --
 -- TOC entry 3676 (class 0 OID 0)
--- Dependencies: 228
+-- Dependencies: 227
 -- Name: macro_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -415,7 +415,7 @@ ALTER SEQUENCE public.macro_profiles_id_seq OWNED BY public.macro_profiles.id;
 
 
 --
--- TOC entry 242 (class 1259 OID 24831)
+-- TOC entry 228 (class 1259 OID 43503)
 -- Name: market_sentiment_daily; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -434,7 +434,7 @@ CREATE TABLE public.market_sentiment_daily (
 
 
 --
--- TOC entry 241 (class 1259 OID 24830)
+-- TOC entry 229 (class 1259 OID 43508)
 -- Name: market_sentiment_daily_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -449,7 +449,7 @@ CREATE SEQUENCE public.market_sentiment_daily_id_seq
 
 --
 -- TOC entry 3677 (class 0 OID 0)
--- Dependencies: 241
+-- Dependencies: 229
 -- Name: market_sentiment_daily_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -457,7 +457,7 @@ ALTER SEQUENCE public.market_sentiment_daily_id_seq OWNED BY public.market_senti
 
 
 --
--- TOC entry 219 (class 1259 OID 16495)
+-- TOC entry 230 (class 1259 OID 43509)
 -- Name: money_flow_daily; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -488,7 +488,7 @@ CREATE TABLE public.money_flow_daily (
 
 
 --
--- TOC entry 218 (class 1259 OID 16494)
+-- TOC entry 231 (class 1259 OID 43513)
 -- Name: money_flow_daily_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -503,7 +503,7 @@ CREATE SEQUENCE public.money_flow_daily_id_seq
 
 --
 -- TOC entry 3678 (class 0 OID 0)
--- Dependencies: 218
+-- Dependencies: 231
 -- Name: money_flow_daily_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -511,7 +511,7 @@ ALTER SEQUENCE public.money_flow_daily_id_seq OWNED BY public.money_flow_daily.i
 
 
 --
--- TOC entry 227 (class 1259 OID 16541)
+-- TOC entry 232 (class 1259 OID 43514)
 -- Name: sentiment_profiles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -529,7 +529,7 @@ CREATE TABLE public.sentiment_profiles (
 
 
 --
--- TOC entry 226 (class 1259 OID 16540)
+-- TOC entry 233 (class 1259 OID 43520)
 -- Name: sentiment_profiles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -544,7 +544,7 @@ CREATE SEQUENCE public.sentiment_profiles_id_seq
 
 --
 -- TOC entry 3679 (class 0 OID 0)
--- Dependencies: 226
+-- Dependencies: 233
 -- Name: sentiment_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -552,7 +552,7 @@ ALTER SEQUENCE public.sentiment_profiles_id_seq OWNED BY public.sentiment_profil
 
 
 --
--- TOC entry 234 (class 1259 OID 16621)
+-- TOC entry 234 (class 1259 OID 43521)
 -- Name: stock_basic; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -568,7 +568,7 @@ CREATE TABLE public.stock_basic (
 
 
 --
--- TOC entry 217 (class 1259 OID 16485)
+-- TOC entry 235 (class 1259 OID 43527)
 -- Name: stock_daily_quotes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -591,7 +591,7 @@ CREATE TABLE public.stock_daily_quotes (
 
 
 --
--- TOC entry 216 (class 1259 OID 16484)
+-- TOC entry 236 (class 1259 OID 43532)
 -- Name: stock_daily_quotes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -606,7 +606,7 @@ CREATE SEQUENCE public.stock_daily_quotes_id_seq
 
 --
 -- TOC entry 3680 (class 0 OID 0)
--- Dependencies: 216
+-- Dependencies: 236
 -- Name: stock_daily_quotes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -614,7 +614,7 @@ ALTER SEQUENCE public.stock_daily_quotes_id_seq OWNED BY public.stock_daily_quot
 
 
 --
--- TOC entry 233 (class 1259 OID 16578)
+-- TOC entry 237 (class 1259 OID 43533)
 -- Name: system_logs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -629,7 +629,7 @@ CREATE TABLE public.system_logs (
 
 
 --
--- TOC entry 232 (class 1259 OID 16577)
+-- TOC entry 238 (class 1259 OID 43539)
 -- Name: system_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -644,7 +644,7 @@ CREATE SEQUENCE public.system_logs_id_seq
 
 --
 -- TOC entry 3681 (class 0 OID 0)
--- Dependencies: 232
+-- Dependencies: 238
 -- Name: system_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -652,7 +652,7 @@ ALTER SEQUENCE public.system_logs_id_seq OWNED BY public.system_logs.id;
 
 
 --
--- TOC entry 221 (class 1259 OID 16505)
+-- TOC entry 239 (class 1259 OID 43540)
 -- Name: technical_daily_profiles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -673,7 +673,7 @@ CREATE TABLE public.technical_daily_profiles (
 
 
 --
--- TOC entry 220 (class 1259 OID 16504)
+-- TOC entry 240 (class 1259 OID 43546)
 -- Name: technical_daily_profiles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -688,7 +688,7 @@ CREATE SEQUENCE public.technical_daily_profiles_id_seq
 
 --
 -- TOC entry 3682 (class 0 OID 0)
--- Dependencies: 220
+-- Dependencies: 240
 -- Name: technical_daily_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -696,7 +696,7 @@ ALTER SEQUENCE public.technical_daily_profiles_id_seq OWNED BY public.technical_
 
 
 --
--- TOC entry 240 (class 1259 OID 24820)
+-- TOC entry 241 (class 1259 OID 43547)
 -- Name: technical_indicators_daily; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -724,7 +724,7 @@ CREATE TABLE public.technical_indicators_daily (
 
 
 --
--- TOC entry 239 (class 1259 OID 24819)
+-- TOC entry 242 (class 1259 OID 43552)
 -- Name: technical_indicators_daily_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -739,7 +739,7 @@ CREATE SEQUENCE public.technical_indicators_daily_id_seq
 
 --
 -- TOC entry 3683 (class 0 OID 0)
--- Dependencies: 239
+-- Dependencies: 242
 -- Name: technical_indicators_daily_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -747,7 +747,7 @@ ALTER SEQUENCE public.technical_indicators_daily_id_seq OWNED BY public.technica
 
 
 --
--- TOC entry 231 (class 1259 OID 16565)
+-- TOC entry 243 (class 1259 OID 43553)
 -- Name: trading_signals; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -775,7 +775,7 @@ CREATE TABLE public.trading_signals (
 
 
 --
--- TOC entry 230 (class 1259 OID 16564)
+-- TOC entry 244 (class 1259 OID 43560)
 -- Name: trading_signals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -790,7 +790,7 @@ CREATE SEQUENCE public.trading_signals_id_seq
 
 --
 -- TOC entry 3684 (class 0 OID 0)
--- Dependencies: 230
+-- Dependencies: 244
 -- Name: trading_signals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
@@ -798,7 +798,7 @@ ALTER SEQUENCE public.trading_signals_id_seq OWNED BY public.trading_signals.id;
 
 
 --
--- TOC entry 3414 (class 2604 OID 24809)
+-- TOC entry 3390 (class 2604 OID 43561)
 -- Name: capital_flow_daily id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -806,7 +806,7 @@ ALTER TABLE ONLY public.capital_flow_daily ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
--- TOC entry 3397 (class 2604 OID 16520)
+-- TOC entry 3393 (class 2604 OID 43562)
 -- Name: capital_flow_profiles id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -814,7 +814,7 @@ ALTER TABLE ONLY public.capital_flow_profiles ALTER COLUMN id SET DEFAULT nextva
 
 
 --
--- TOC entry 3411 (class 2604 OID 24792)
+-- TOC entry 3395 (class 2604 OID 43563)
 -- Name: data_update_log id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -822,7 +822,7 @@ ALTER TABLE ONLY public.data_update_log ALTER COLUMN id SET DEFAULT nextval('pub
 
 
 --
--- TOC entry 3423 (class 2604 OID 24845)
+-- TOC entry 3398 (class 2604 OID 43564)
 -- Name: financial_indicators_quarterly id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -830,7 +830,7 @@ ALTER TABLE ONLY public.financial_indicators_quarterly ALTER COLUMN id SET DEFAU
 
 
 --
--- TOC entry 3399 (class 2604 OID 16532)
+-- TOC entry 3401 (class 2604 OID 43565)
 -- Name: fundamental_profiles id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -838,7 +838,7 @@ ALTER TABLE ONLY public.fundamental_profiles ALTER COLUMN id SET DEFAULT nextval
 
 
 --
--- TOC entry 3403 (class 2604 OID 16556)
+-- TOC entry 3403 (class 2604 OID 43566)
 -- Name: macro_profiles id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -846,7 +846,7 @@ ALTER TABLE ONLY public.macro_profiles ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
--- TOC entry 3420 (class 2604 OID 24834)
+-- TOC entry 3405 (class 2604 OID 43567)
 -- Name: market_sentiment_daily id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -854,7 +854,7 @@ ALTER TABLE ONLY public.market_sentiment_daily ALTER COLUMN id SET DEFAULT nextv
 
 
 --
--- TOC entry 3393 (class 2604 OID 16498)
+-- TOC entry 3408 (class 2604 OID 43568)
 -- Name: money_flow_daily id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -862,7 +862,7 @@ ALTER TABLE ONLY public.money_flow_daily ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
--- TOC entry 3401 (class 2604 OID 16544)
+-- TOC entry 3410 (class 2604 OID 43569)
 -- Name: sentiment_profiles id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -870,7 +870,7 @@ ALTER TABLE ONLY public.sentiment_profiles ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
--- TOC entry 3390 (class 2604 OID 16488)
+-- TOC entry 3413 (class 2604 OID 43570)
 -- Name: stock_daily_quotes id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -878,7 +878,7 @@ ALTER TABLE ONLY public.stock_daily_quotes ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
--- TOC entry 3408 (class 2604 OID 16581)
+-- TOC entry 3416 (class 2604 OID 43571)
 -- Name: system_logs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -886,7 +886,7 @@ ALTER TABLE ONLY public.system_logs ALTER COLUMN id SET DEFAULT nextval('public.
 
 
 --
--- TOC entry 3395 (class 2604 OID 16508)
+-- TOC entry 3418 (class 2604 OID 43572)
 -- Name: technical_daily_profiles id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -894,7 +894,7 @@ ALTER TABLE ONLY public.technical_daily_profiles ALTER COLUMN id SET DEFAULT nex
 
 
 --
--- TOC entry 3417 (class 2604 OID 24823)
+-- TOC entry 3420 (class 2604 OID 43573)
 -- Name: technical_indicators_daily id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -902,7 +902,7 @@ ALTER TABLE ONLY public.technical_indicators_daily ALTER COLUMN id SET DEFAULT n
 
 
 --
--- TOC entry 3405 (class 2604 OID 16568)
+-- TOC entry 3423 (class 2604 OID 43574)
 -- Name: trading_signals id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -910,8 +910,8 @@ ALTER TABLE ONLY public.trading_signals ALTER COLUMN id SET DEFAULT nextval('pub
 
 
 --
--- TOC entry 3657 (class 0 OID 24806)
--- Dependencies: 238
+-- TOC entry 3635 (class 0 OID 43461)
+-- Dependencies: 216
 -- Data for Name: capital_flow_daily; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1038,8 +1038,8 @@ COPY public.capital_flow_daily (id, ts_code, trade_date, main_net_inflow, main_n
 
 
 --
--- TOC entry 3642 (class 0 OID 16517)
--- Dependencies: 223
+-- TOC entry 3637 (class 0 OID 43467)
+-- Dependencies: 218
 -- Data for Name: capital_flow_profiles; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1048,8 +1048,8 @@ COPY public.capital_flow_profiles (id, ts_code, trade_date, main_force_score, re
 
 
 --
--- TOC entry 3655 (class 0 OID 24789)
--- Dependencies: 236
+-- TOC entry 3639 (class 0 OID 43474)
+-- Dependencies: 220
 -- Data for Name: data_update_log; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1063,8 +1063,8 @@ COPY public.data_update_log (id, update_date, update_time, status, message, crea
 
 
 --
--- TOC entry 3663 (class 0 OID 24842)
--- Dependencies: 244
+-- TOC entry 3641 (class 0 OID 43483)
+-- Dependencies: 222
 -- Data for Name: financial_indicators_quarterly; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1073,8 +1073,8 @@ COPY public.financial_indicators_quarterly (id, ts_code, report_date, pe_ratio, 
 
 
 --
--- TOC entry 3644 (class 0 OID 16529)
--- Dependencies: 225
+-- TOC entry 3643 (class 0 OID 43489)
+-- Dependencies: 224
 -- Data for Name: fundamental_profiles; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1083,8 +1083,8 @@ COPY public.fundamental_profiles (id, ts_code, trade_date, catalyst_score, news_
 
 
 --
--- TOC entry 3648 (class 0 OID 16553)
--- Dependencies: 229
+-- TOC entry 3645 (class 0 OID 43496)
+-- Dependencies: 226
 -- Data for Name: macro_profiles; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1093,8 +1093,8 @@ COPY public.macro_profiles (id, trade_date, market_regime, sector_rotation, risk
 
 
 --
--- TOC entry 3661 (class 0 OID 24831)
--- Dependencies: 242
+-- TOC entry 3647 (class 0 OID 43503)
+-- Dependencies: 228
 -- Data for Name: market_sentiment_daily; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1218,8 +1218,8 @@ COPY public.market_sentiment_daily (id, ts_code, trade_date, sentiment_score, ne
 
 
 --
--- TOC entry 3638 (class 0 OID 16495)
--- Dependencies: 219
+-- TOC entry 3649 (class 0 OID 43509)
+-- Dependencies: 230
 -- Data for Name: money_flow_daily; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1228,8 +1228,8 @@ COPY public.money_flow_daily (id, ts_code, trade_date, buy_sm_vol, buy_sm_amount
 
 
 --
--- TOC entry 3646 (class 0 OID 16541)
--- Dependencies: 227
+-- TOC entry 3651 (class 0 OID 43514)
+-- Dependencies: 232
 -- Data for Name: sentiment_profiles; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1238,7 +1238,7 @@ COPY public.sentiment_profiles (id, ts_code, trade_date, social_sentiment, news_
 
 
 --
--- TOC entry 3653 (class 0 OID 16621)
+-- TOC entry 3653 (class 0 OID 43521)
 -- Dependencies: 234
 -- Data for Name: stock_basic; Type: TABLE DATA; Schema: public; Owner: -
 --
@@ -6481,8 +6481,8 @@ COPY public.stock_basic (ts_code, name, symbol, market, exchange, list_status, u
 
 
 --
--- TOC entry 3636 (class 0 OID 16485)
--- Dependencies: 217
+-- TOC entry 3654 (class 0 OID 43527)
+-- Dependencies: 235
 -- Data for Name: stock_daily_quotes; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -6511,8 +6511,8 @@ COPY public.stock_daily_quotes (id, ts_code, trade_date, open_price, high_price,
 
 
 --
--- TOC entry 3652 (class 0 OID 16578)
--- Dependencies: 233
+-- TOC entry 3656 (class 0 OID 43533)
+-- Dependencies: 237
 -- Data for Name: system_logs; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -6521,8 +6521,8 @@ COPY public.system_logs (id, log_level, module, message, details, created_at) FR
 
 
 --
--- TOC entry 3640 (class 0 OID 16505)
--- Dependencies: 221
+-- TOC entry 3658 (class 0 OID 43540)
+-- Dependencies: 239
 -- Data for Name: technical_daily_profiles; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -6531,8 +6531,8 @@ COPY public.technical_daily_profiles (id, ts_code, trade_date, trend_score, mome
 
 
 --
--- TOC entry 3659 (class 0 OID 24820)
--- Dependencies: 240
+-- TOC entry 3660 (class 0 OID 43547)
+-- Dependencies: 241
 -- Data for Name: technical_indicators_daily; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -6656,8 +6656,8 @@ COPY public.technical_indicators_daily (id, ts_code, trade_date, ma5, ma10, ma20
 
 
 --
--- TOC entry 3650 (class 0 OID 16565)
--- Dependencies: 231
+-- TOC entry 3662 (class 0 OID 43553)
+-- Dependencies: 243
 -- Data for Name: trading_signals; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -6667,7 +6667,7 @@ COPY public.trading_signals (id, ts_code, trade_date, signal_type, confidence_sc
 
 --
 -- TOC entry 3685 (class 0 OID 0)
--- Dependencies: 237
+-- Dependencies: 217
 -- Name: capital_flow_daily_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6676,7 +6676,7 @@ SELECT pg_catalog.setval('public.capital_flow_daily_id_seq', 118, true);
 
 --
 -- TOC entry 3686 (class 0 OID 0)
--- Dependencies: 222
+-- Dependencies: 219
 -- Name: capital_flow_profiles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6685,7 +6685,7 @@ SELECT pg_catalog.setval('public.capital_flow_profiles_id_seq', 1, false);
 
 --
 -- TOC entry 3687 (class 0 OID 0)
--- Dependencies: 235
+-- Dependencies: 221
 -- Name: data_update_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6694,7 +6694,7 @@ SELECT pg_catalog.setval('public.data_update_log_id_seq', 5, true);
 
 --
 -- TOC entry 3688 (class 0 OID 0)
--- Dependencies: 243
+-- Dependencies: 223
 -- Name: financial_indicators_quarterly_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6703,7 +6703,7 @@ SELECT pg_catalog.setval('public.financial_indicators_quarterly_id_seq', 1, fals
 
 --
 -- TOC entry 3689 (class 0 OID 0)
--- Dependencies: 224
+-- Dependencies: 225
 -- Name: fundamental_profiles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6712,7 +6712,7 @@ SELECT pg_catalog.setval('public.fundamental_profiles_id_seq', 1, false);
 
 --
 -- TOC entry 3690 (class 0 OID 0)
--- Dependencies: 228
+-- Dependencies: 227
 -- Name: macro_profiles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6721,7 +6721,7 @@ SELECT pg_catalog.setval('public.macro_profiles_id_seq', 1, false);
 
 --
 -- TOC entry 3691 (class 0 OID 0)
--- Dependencies: 241
+-- Dependencies: 229
 -- Name: market_sentiment_daily_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6730,7 +6730,7 @@ SELECT pg_catalog.setval('public.market_sentiment_daily_id_seq', 115, true);
 
 --
 -- TOC entry 3692 (class 0 OID 0)
--- Dependencies: 218
+-- Dependencies: 231
 -- Name: money_flow_daily_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6739,7 +6739,7 @@ SELECT pg_catalog.setval('public.money_flow_daily_id_seq', 1, false);
 
 --
 -- TOC entry 3693 (class 0 OID 0)
--- Dependencies: 226
+-- Dependencies: 233
 -- Name: sentiment_profiles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6748,7 +6748,7 @@ SELECT pg_catalog.setval('public.sentiment_profiles_id_seq', 1, false);
 
 --
 -- TOC entry 3694 (class 0 OID 0)
--- Dependencies: 216
+-- Dependencies: 236
 -- Name: stock_daily_quotes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6757,7 +6757,7 @@ SELECT pg_catalog.setval('public.stock_daily_quotes_id_seq', 40, true);
 
 --
 -- TOC entry 3695 (class 0 OID 0)
--- Dependencies: 232
+-- Dependencies: 238
 -- Name: system_logs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6766,7 +6766,7 @@ SELECT pg_catalog.setval('public.system_logs_id_seq', 1, false);
 
 --
 -- TOC entry 3696 (class 0 OID 0)
--- Dependencies: 220
+-- Dependencies: 240
 -- Name: technical_daily_profiles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6775,7 +6775,7 @@ SELECT pg_catalog.setval('public.technical_daily_profiles_id_seq', 1, false);
 
 --
 -- TOC entry 3697 (class 0 OID 0)
--- Dependencies: 239
+-- Dependencies: 242
 -- Name: technical_indicators_daily_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6784,7 +6784,7 @@ SELECT pg_catalog.setval('public.technical_indicators_daily_id_seq', 115, true);
 
 --
 -- TOC entry 3698 (class 0 OID 0)
--- Dependencies: 230
+-- Dependencies: 244
 -- Name: trading_signals_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -6792,7 +6792,7 @@ SELECT pg_catalog.setval('public.trading_signals_id_seq', 1, false);
 
 
 --
--- TOC entry 3474 (class 2606 OID 24813)
+-- TOC entry 3428 (class 2606 OID 43576)
 -- Name: capital_flow_daily capital_flow_daily_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6801,7 +6801,7 @@ ALTER TABLE ONLY public.capital_flow_daily
 
 
 --
--- TOC entry 3477 (class 2606 OID 24815)
+-- TOC entry 3431 (class 2606 OID 43578)
 -- Name: capital_flow_daily capital_flow_daily_ts_code_trade_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6810,7 +6810,7 @@ ALTER TABLE ONLY public.capital_flow_daily
 
 
 --
--- TOC entry 3443 (class 2606 OID 16525)
+-- TOC entry 3436 (class 2606 OID 43580)
 -- Name: capital_flow_profiles capital_flow_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6819,7 +6819,7 @@ ALTER TABLE ONLY public.capital_flow_profiles
 
 
 --
--- TOC entry 3445 (class 2606 OID 16527)
+-- TOC entry 3438 (class 2606 OID 43582)
 -- Name: capital_flow_profiles capital_flow_profiles_ts_code_trade_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6828,7 +6828,7 @@ ALTER TABLE ONLY public.capital_flow_profiles
 
 
 --
--- TOC entry 3469 (class 2606 OID 24799)
+-- TOC entry 3441 (class 2606 OID 43584)
 -- Name: data_update_log data_update_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6837,7 +6837,7 @@ ALTER TABLE ONLY public.data_update_log
 
 
 --
--- TOC entry 3490 (class 2606 OID 24849)
+-- TOC entry 3446 (class 2606 OID 43586)
 -- Name: financial_indicators_quarterly financial_indicators_quarterly_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6846,7 +6846,7 @@ ALTER TABLE ONLY public.financial_indicators_quarterly
 
 
 --
--- TOC entry 3492 (class 2606 OID 24851)
+-- TOC entry 3448 (class 2606 OID 43588)
 -- Name: financial_indicators_quarterly financial_indicators_quarterly_ts_code_report_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6855,7 +6855,7 @@ ALTER TABLE ONLY public.financial_indicators_quarterly
 
 
 --
--- TOC entry 3448 (class 2606 OID 16537)
+-- TOC entry 3450 (class 2606 OID 43590)
 -- Name: fundamental_profiles fundamental_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6864,7 +6864,7 @@ ALTER TABLE ONLY public.fundamental_profiles
 
 
 --
--- TOC entry 3450 (class 2606 OID 16539)
+-- TOC entry 3452 (class 2606 OID 43592)
 -- Name: fundamental_profiles fundamental_profiles_ts_code_trade_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6873,7 +6873,7 @@ ALTER TABLE ONLY public.fundamental_profiles
 
 
 --
--- TOC entry 3456 (class 2606 OID 16561)
+-- TOC entry 3454 (class 2606 OID 43594)
 -- Name: macro_profiles macro_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6882,7 +6882,7 @@ ALTER TABLE ONLY public.macro_profiles
 
 
 --
--- TOC entry 3458 (class 2606 OID 16563)
+-- TOC entry 3456 (class 2606 OID 43596)
 -- Name: macro_profiles macro_profiles_trade_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6891,7 +6891,7 @@ ALTER TABLE ONLY public.macro_profiles
 
 
 --
--- TOC entry 3486 (class 2606 OID 24838)
+-- TOC entry 3458 (class 2606 OID 43598)
 -- Name: market_sentiment_daily market_sentiment_daily_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6900,7 +6900,7 @@ ALTER TABLE ONLY public.market_sentiment_daily
 
 
 --
--- TOC entry 3488 (class 2606 OID 24840)
+-- TOC entry 3460 (class 2606 OID 43600)
 -- Name: market_sentiment_daily market_sentiment_daily_ts_code_trade_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6909,7 +6909,7 @@ ALTER TABLE ONLY public.market_sentiment_daily
 
 
 --
--- TOC entry 3434 (class 2606 OID 16501)
+-- TOC entry 3463 (class 2606 OID 43602)
 -- Name: money_flow_daily money_flow_daily_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6918,7 +6918,7 @@ ALTER TABLE ONLY public.money_flow_daily
 
 
 --
--- TOC entry 3436 (class 2606 OID 16503)
+-- TOC entry 3465 (class 2606 OID 43604)
 -- Name: money_flow_daily money_flow_daily_ts_code_trade_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6927,7 +6927,7 @@ ALTER TABLE ONLY public.money_flow_daily
 
 
 --
--- TOC entry 3452 (class 2606 OID 16549)
+-- TOC entry 3467 (class 2606 OID 43606)
 -- Name: sentiment_profiles sentiment_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6936,7 +6936,7 @@ ALTER TABLE ONLY public.sentiment_profiles
 
 
 --
--- TOC entry 3454 (class 2606 OID 16551)
+-- TOC entry 3469 (class 2606 OID 43608)
 -- Name: sentiment_profiles sentiment_profiles_ts_code_trade_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6945,7 +6945,7 @@ ALTER TABLE ONLY public.sentiment_profiles
 
 
 --
--- TOC entry 3429 (class 2606 OID 16491)
+-- TOC entry 3472 (class 2606 OID 43610)
 -- Name: stock_daily_quotes stock_daily_quotes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6954,7 +6954,7 @@ ALTER TABLE ONLY public.stock_daily_quotes
 
 
 --
--- TOC entry 3431 (class 2606 OID 16493)
+-- TOC entry 3474 (class 2606 OID 43612)
 -- Name: stock_daily_quotes stock_daily_quotes_ts_code_trade_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6963,7 +6963,7 @@ ALTER TABLE ONLY public.stock_daily_quotes
 
 
 --
--- TOC entry 3467 (class 2606 OID 16586)
+-- TOC entry 3477 (class 2606 OID 43614)
 -- Name: system_logs system_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6972,7 +6972,7 @@ ALTER TABLE ONLY public.system_logs
 
 
 --
--- TOC entry 3439 (class 2606 OID 16513)
+-- TOC entry 3480 (class 2606 OID 43616)
 -- Name: technical_daily_profiles technical_daily_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6981,7 +6981,7 @@ ALTER TABLE ONLY public.technical_daily_profiles
 
 
 --
--- TOC entry 3441 (class 2606 OID 16515)
+-- TOC entry 3482 (class 2606 OID 43618)
 -- Name: technical_daily_profiles technical_daily_profiles_ts_code_trade_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6990,7 +6990,7 @@ ALTER TABLE ONLY public.technical_daily_profiles
 
 
 --
--- TOC entry 3482 (class 2606 OID 24827)
+-- TOC entry 3484 (class 2606 OID 43620)
 -- Name: technical_indicators_daily technical_indicators_daily_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6999,7 +6999,7 @@ ALTER TABLE ONLY public.technical_indicators_daily
 
 
 --
--- TOC entry 3484 (class 2606 OID 24829)
+-- TOC entry 3486 (class 2606 OID 43622)
 -- Name: technical_indicators_daily technical_indicators_daily_ts_code_trade_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7008,7 +7008,7 @@ ALTER TABLE ONLY public.technical_indicators_daily
 
 
 --
--- TOC entry 3462 (class 2606 OID 16574)
+-- TOC entry 3490 (class 2606 OID 43624)
 -- Name: trading_signals trading_signals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7017,7 +7017,7 @@ ALTER TABLE ONLY public.trading_signals
 
 
 --
--- TOC entry 3464 (class 2606 OID 16576)
+-- TOC entry 3492 (class 2606 OID 43626)
 -- Name: trading_signals trading_signals_ts_code_trade_date_signal_type_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7026,7 +7026,7 @@ ALTER TABLE ONLY public.trading_signals
 
 
 --
--- TOC entry 3475 (class 1259 OID 32980)
+-- TOC entry 3429 (class 1259 OID 43627)
 -- Name: capital_flow_daily_trade_date_ts_code_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7034,7 +7034,7 @@ CREATE UNIQUE INDEX capital_flow_daily_trade_date_ts_code_key ON public.capital_
 
 
 --
--- TOC entry 3478 (class 1259 OID 24817)
+-- TOC entry 3432 (class 1259 OID 43628)
 -- Name: idx_capital_flow_trade_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7042,7 +7042,7 @@ CREATE INDEX idx_capital_flow_trade_date ON public.capital_flow_daily USING btre
 
 
 --
--- TOC entry 3479 (class 1259 OID 24816)
+-- TOC entry 3433 (class 1259 OID 43629)
 -- Name: idx_capital_flow_ts_code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7050,7 +7050,7 @@ CREATE INDEX idx_capital_flow_ts_code ON public.capital_flow_daily USING btree (
 
 
 --
--- TOC entry 3480 (class 1259 OID 24818)
+-- TOC entry 3434 (class 1259 OID 43630)
 -- Name: idx_capital_flow_ts_code_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7058,7 +7058,7 @@ CREATE INDEX idx_capital_flow_ts_code_date ON public.capital_flow_daily USING bt
 
 
 --
--- TOC entry 3446 (class 1259 OID 16590)
+-- TOC entry 3439 (class 1259 OID 43631)
 -- Name: idx_capital_profiles_ts_code_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7066,7 +7066,7 @@ CREATE INDEX idx_capital_profiles_ts_code_date ON public.capital_flow_profiles U
 
 
 --
--- TOC entry 3470 (class 1259 OID 24800)
+-- TOC entry 3442 (class 1259 OID 43632)
 -- Name: idx_data_update_log_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7074,7 +7074,7 @@ CREATE INDEX idx_data_update_log_date ON public.data_update_log USING btree (upd
 
 
 --
--- TOC entry 3471 (class 1259 OID 24801)
+-- TOC entry 3443 (class 1259 OID 43633)
 -- Name: idx_data_update_log_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7082,7 +7082,7 @@ CREATE INDEX idx_data_update_log_status ON public.data_update_log USING btree (s
 
 
 --
--- TOC entry 3472 (class 1259 OID 24802)
+-- TOC entry 3444 (class 1259 OID 43634)
 -- Name: idx_data_update_log_time; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7090,7 +7090,7 @@ CREATE INDEX idx_data_update_log_time ON public.data_update_log USING btree (upd
 
 
 --
--- TOC entry 3432 (class 1259 OID 16588)
+-- TOC entry 3461 (class 1259 OID 43635)
 -- Name: idx_money_flow_daily_ts_code_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7098,7 +7098,7 @@ CREATE INDEX idx_money_flow_daily_ts_code_date ON public.money_flow_daily USING 
 
 
 --
--- TOC entry 3427 (class 1259 OID 16587)
+-- TOC entry 3470 (class 1259 OID 43636)
 -- Name: idx_stock_daily_quotes_ts_code_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7106,7 +7106,7 @@ CREATE INDEX idx_stock_daily_quotes_ts_code_date ON public.stock_daily_quotes US
 
 
 --
--- TOC entry 3465 (class 1259 OID 16593)
+-- TOC entry 3475 (class 1259 OID 43637)
 -- Name: idx_system_logs_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7114,7 +7114,7 @@ CREATE INDEX idx_system_logs_created_at ON public.system_logs USING btree (creat
 
 
 --
--- TOC entry 3437 (class 1259 OID 16589)
+-- TOC entry 3478 (class 1259 OID 43638)
 -- Name: idx_technical_profiles_ts_code_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7122,7 +7122,7 @@ CREATE INDEX idx_technical_profiles_ts_code_date ON public.technical_daily_profi
 
 
 --
--- TOC entry 3459 (class 1259 OID 16592)
+-- TOC entry 3487 (class 1259 OID 43639)
 -- Name: idx_trading_signals_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7130,14 +7130,14 @@ CREATE INDEX idx_trading_signals_active ON public.trading_signals USING btree (i
 
 
 --
--- TOC entry 3460 (class 1259 OID 16591)
+-- TOC entry 3488 (class 1259 OID 43640)
 -- Name: idx_trading_signals_date_score; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_trading_signals_date_score ON public.trading_signals USING btree (trade_date DESC, confidence_score DESC);
 
 
--- Completed on 2025-06-22 23:42:17 UTC
+-- Completed on 2025-06-23 00:10:04 UTC
 
 --
 -- PostgreSQL database dump complete

@@ -27,7 +27,7 @@ class BackupManager:
         self.backup_dir = project_root / "backups"
         self.clickhouse_backup_dir = self.backup_dir / "clickhouse"
         self.postgres_backup_dir = self.backup_dir / "postgres"
-        self.backup_retention_days = 30  # 保留30天的备份
+        self.backup_retention_days = 0  # 0表示只保留最新备份
         
     def backup_after_data_update(self, backup_type: str = "full") -> bool:
         """
@@ -177,24 +177,27 @@ class BackupManager:
             logger.error(f"PostgreSQL备份失败: {e}")
     
     def _cleanup_old_backups(self):
-        """清理旧备份文件"""
+        """清理旧备份文件，只保留最新的备份"""
         try:
-            current_time = datetime.now()
-            cutoff_time = current_time - timedelta(days=self.backup_retention_days)
-            
-            # 清理ClickHouse备份
-            for backup_file in self.clickhouse_backup_dir.glob("*.tar.gz"):
-                file_time = datetime.fromtimestamp(backup_file.stat().st_mtime)
-                if file_time < cutoff_time:
+            # 清理ClickHouse备份，只保留最新的
+            clickhouse_backups = list(self.clickhouse_backup_dir.glob("*.tar.gz"))
+            if len(clickhouse_backups) > 1:
+                # 按修改时间排序，保留最新的
+                clickhouse_backups.sort(key=lambda x: x.stat().st_mtime)
+                # 删除除最新外的所有备份
+                for backup_file in clickhouse_backups[:-1]:
                     backup_file.unlink()
-                    logger.info(f"删除旧ClickHouse备份: {backup_file}")
+                    logger.info(f"删除旧ClickHouse备份: {backup_file.name}")
             
-            # 清理PostgreSQL备份
-            for backup_file in self.postgres_backup_dir.glob("*.sql"):
-                file_time = datetime.fromtimestamp(backup_file.stat().st_mtime)
-                if file_time < cutoff_time:
+            # 清理PostgreSQL备份，只保留最新的
+            postgres_backups = list(self.postgres_backup_dir.glob("*.sql"))
+            if len(postgres_backups) > 1:
+                # 按修改时间排序，保留最新的
+                postgres_backups.sort(key=lambda x: x.stat().st_mtime)
+                # 删除除最新外的所有备份
+                for backup_file in postgres_backups[:-1]:
                     backup_file.unlink()
-                    logger.info(f"删除旧PostgreSQL备份: {backup_file}")
+                    logger.info(f"删除旧PostgreSQL备份: {backup_file.name}")
                     
         except Exception as e:
             logger.error(f"清理旧备份失败: {e}")
