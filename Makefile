@@ -2,7 +2,16 @@
 
 .PHONY: help install start stop restart logs clean test dashboard sample-data test-system
 
+# 变量定义
+PYTHON = python3
+PIP = pip3
+DOCKER = docker
+DOCKER_COMPOSE = docker-compose
+
 # 默认目标
+.DEFAULT_GOAL := help
+
+# 帮助信息
 help:
 	@echo "启明星股票分析系统 (四维分析) - 可用命令:"
 	@echo ""
@@ -32,19 +41,19 @@ help:
 # 安装依赖
 install:
 	@echo "安装 Python 依赖..."
-	pip install -r requirements.txt
+	$(PIP) install -r requirements.txt
 	@echo "依赖安装完成"
 
 # 启动服务
 start:
 	@echo "启动 Docker 服务..."
-	docker-compose up -d
+	$(DOCKER_COMPOSE) up -d
 	@echo "服务启动完成"
 
 # 停止服务
 stop:
 	@echo "停止 Docker 服务..."
-	docker-compose down
+	$(DOCKER_COMPOSE) down
 	@echo "服务已停止"
 
 # 重启服务
@@ -52,7 +61,7 @@ restart: stop start
 
 # 查看日志
 logs:
-	docker-compose logs -f
+	$(DOCKER_COMPOSE) logs -f
 
 # 启动仪表盘
 dashboard:
@@ -60,12 +69,12 @@ dashboard:
 	@echo "📍 访问地址: http://localhost:8501"
 	@echo "📊 Marimo研究室已集成到侧边栏"
 	@echo "🔄 正在恢复数据库..."
-	@python scripts/restore_clickhouse.py
+	@$(PYTHON) scripts/restore_all.py
 	@if [ -d ".venv" ]; then \
-		source .venv/bin/activate && streamlit run dashboard/app.py; \
+		source .venv/bin/activate && $(PYTHON) scripts/run_dashboard_v2.py; \
 	else \
 		echo "❌ 错误: 未找到虚拟环境 (.venv)"; \
-		echo "请先运行: python -m venv .venv && source .venv/bin/activate && make install"; \
+		echo "请先运行: $(PYTHON) -m venv .venv && source .venv/bin/activate && make install"; \
 		exit 1; \
 	fi
 
@@ -75,7 +84,7 @@ dashboard:
 # 运行测试
 test:
 	@echo "运行测试..."
-	python -m pytest tests/ -v
+	$(PYTHON) -m pytest tests/ -v
 
 # 清理临时文件
 clean:
@@ -88,61 +97,61 @@ clean:
 # 快速启动
 quick-start:
 	@echo "快速启动启明星系统..."
-	python scripts/quick_start.py
+	$(PYTHON) scripts/quick_start.py
 
 # 生成样本数据
 sample-data:
 	@echo "生成样本数据..."
-	python scripts/fetch_sample_data.py
+	$(PYTHON) scripts/fetch_sample_data.py
 
 # 完整系统测试
 test-system:
 	@echo "运行完整系统测试..."
-	python scripts/test_full_system.py
+	$(PYTHON) scripts/test_full_system.py
 
 # 测试 Tulipy
 test-tulipy:
 	@echo "测试 Tulipy 技术分析库..."
-	python scripts/test_tulipy.py
+	$(PYTHON) scripts/test_tulipy.py
 
 # 初始化数据库
 init-db:
 	@echo "初始化数据库..."
-	python scripts/init_database.py
+	$(PYTHON) scripts/init_database.py
 
 # 运行分析任务
 run-analysis:
 	@echo "运行五维分析任务..."
-	python -c "from src.analyzers.technical_analyzer import TechnicalAnalyzer; from datetime import datetime; analyzer = TechnicalAnalyzer(); print('技术分析完成')"
+	$(PYTHON) -c "from src.analyzers.technical_analyzer import TechnicalAnalyzer; from datetime import datetime; analyzer = TechnicalAnalyzer(); print('技术分析完成')"
 
 # 生成交易信号
 generate-signals:
 	@echo "生成交易信号..."
-	python -c "from src.fusion.signal_fusion_engine import SignalFusionEngine; from datetime import datetime; engine = SignalFusionEngine(); print('信号生成完成')"
+	$(PYTHON) -c "from src.fusion.signal_fusion_engine import SignalFusionEngine; from datetime import datetime; engine = SignalFusionEngine(); print('信号生成完成')"
 
 # 构建 Docker 镜像
 build:
 	@echo "构建 Docker 镜像..."
-	docker-compose build
+	$(DOCKER_COMPOSE) build
 
 # 查看服务状态
 status:
 	@echo "服务状态:"
-	docker-compose ps
+	$(DOCKER_COMPOSE) ps
 
 # 进入 PostgreSQL
 psql:
-	docker-compose exec postgres psql -U qiming_user -d qiming_star
+	$(DOCKER_COMPOSE) exec postgres psql -U qiming_user -d qiming_star
 
 # 进入 Redis
 redis-cli:
-	docker-compose exec redis redis-cli -a qiming_redis_2024
+	$(DOCKER_COMPOSE) exec redis redis-cli -a qiming_redis_2024
 
 # 备份数据库
 backup:
 	@echo "备份数据库..."
 	mkdir -p data/backups
-	docker-compose exec postgres pg_dump -U qiming_user qiming_star > data/backups/backup_$(shell date +%Y%m%d_%H%M%S).sql
+	$(DOCKER_COMPOSE) exec postgres pg_dump -U qiming_user qiming_star > data/backups/backup_$(shell date +%Y%m%d_%H%M%S).sql
 	@echo "备份完成"
 
 # 恢复数据库
@@ -151,5 +160,5 @@ restore:
 
 restore-file:
 	@echo "恢复数据库..."
-	docker-compose exec -T postgres psql -U qiming_user qiming_star < $(BACKUP_FILE)
+	$(DOCKER_COMPOSE) exec -T postgres psql -U qiming_user qiming_star < $(BACKUP_FILE)
 	@echo "恢复完成"

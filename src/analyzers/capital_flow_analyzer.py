@@ -343,7 +343,7 @@ class CapitalFlowAnalyzer:
             
             if money_flow_df.empty:
                 logger.warning(f"股票 {ts_code} 无资金流数据")
-                return {}
+                return None
             
             # 按日期正序排列
             money_flow_df = money_flow_df.sort_values('date')
@@ -396,7 +396,16 @@ class CapitalFlowAnalyzer:
             
         except Exception as e:
             logger.error(f"分析股票 {ts_code} 资金流失败: {e}")
-            return {}
+            return {
+                'ts_code': ts_code,
+                'trade_date': trade_date,
+                'main_force_score': 0.0,
+                'retail_sentiment_score': 0.0,
+                'institutional_activity': 0.0,
+                'flow_consistency': 0.0,
+                'volume_price_correlation': 0.0,
+                'flow_analysis': None
+            }
 
 
 if __name__ == "__main__":

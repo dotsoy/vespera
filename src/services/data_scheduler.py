@@ -17,6 +17,7 @@ sys.path.insert(0, str(project_root))
 
 from src.utils.logger import get_logger
 from src.utils.database import get_db_manager
+from src.utils.backup_manager import get_backup_manager
 from src.data_sources.akshare_data_source import AkShareDataSource
 from src.data_sources.base_data_source import DataRequest, DataType
 
@@ -32,6 +33,7 @@ class DataUpdateScheduler:
         self.update_thread = None
         self.db_manager = get_db_manager()
         self.data_source = AkShareDataSource()
+        self.backup_manager = get_backup_manager()
         
     def start(self):
         """启动调度器"""
@@ -92,6 +94,14 @@ class DataUpdateScheduler:
             if success:
                 self._record_update_completion()
                 logger.info("每日数据更新完成")
+                
+                # 数据更新完成后立即进行备份
+                logger.info("开始执行数据更新后备份...")
+                backup_success = self.backup_manager.backup_after_data_update("full")
+                if backup_success:
+                    logger.success("✅ 数据更新后备份完成")
+                else:
+                    logger.error("❌ 数据更新后备份失败")
             else:
                 logger.error("每日数据更新失败")
                 

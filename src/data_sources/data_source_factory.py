@@ -14,7 +14,8 @@ from .base_data_source import (
     DataRequest,
     DataSourceError
 )
-from .alltick_data_source import AllTickDataSource
+from .akshare_data_source import AkShareDataSource
+from .adata_data_source import AdataDataSource
 
 class DataSourceFactory:
     """数据源工厂类"""
@@ -26,25 +27,42 @@ class DataSourceFactory:
         
     def _initialize_sources(self):
         """初始化所有数据源"""
-        # 初始化 AllTick 数据源
+        # 初始化 AData 数据源 (免费、专注A股，优先使用)
         try:
-            alltick_source = AllTickDataSource(
-                api_token='5d77b3af30d6b74b6bad3340996cb399-c-app',
-                clickhouse_config={
-                    'host': 'localhost',
-                    'port': 9000,
-                    'user': 'qiming_user',
-                    'password': 'qiming_pass_2024',
-                    'database': 'qiming_timeseries'
-                }
-            )
-            self._register_source('alltick', alltick_source)
-            logger.info("AllTick 数据源初始化成功")
+            adata_source = AdataDataSource()
+            self._register_source('adata', adata_source)
+            logger.info("AData 数据源初始化成功")
         except Exception as e:
-            logger.error(f"AllTick 数据源初始化失败: {e}")
+            logger.error(f"AData 数据源初始化失败: {e}")
             logger.error(f"错误详情: {str(e)}")
             import traceback
             logger.error(f"堆栈跟踪: {traceback.format_exc()}")
+        
+        # 初始化 AkShare 数据源 (免费、稳定，备用)
+        try:
+            akshare_source = AkShareDataSource()
+            self._register_source('akshare', akshare_source)
+            logger.info("AkShare 数据源初始化成功")
+        except Exception as e:
+            logger.error(f"AkShare 数据源初始化失败: {e}")
+            logger.error(f"错误详情: {str(e)}")
+            import traceback
+            logger.error(f"堆栈跟踪: {traceback.format_exc()}")
+        
+        # 初始化 Tushare 数据源 (需要token，作为备用)
+        try:
+            from .tushare_data_source import TushareDataSource
+            # 从环境变量或配置文件获取token
+            import os
+            tushare_token = os.getenv('TUSHARE_TOKEN', '')
+            if tushare_token:
+                tushare_source = TushareDataSource(token=tushare_token)
+                self._register_source('tushare', tushare_source)
+                logger.info("Tushare 数据源初始化成功")
+            else:
+                logger.info("Tushare token未配置，跳过初始化")
+        except Exception as e:
+            logger.error(f"Tushare 数据源初始化失败: {e}")
         
     def _register_source(self, name: str, source: Union[str, BaseDataSource], class_name: Optional[str] = None) -> bool:
         """注册数据源
@@ -65,6 +83,13 @@ class DataSourceFactory:
                 
             if not isinstance(source, BaseDataSource):
                 raise ValueError(f"数据源 {name} 必须是 BaseDataSource 的实例")
+            
+            # 自动初始化数据源
+            if not source.is_available():
+                logger.info(f"正在初始化数据源 {name}...")
+                if not source.initialize():
+                    logger.error(f"数据源 {name} 初始化失败")
+                    return False
                 
             self._sources[name] = source
             logger.info(f"数据源 {name} 注册成功")
@@ -103,17 +128,38 @@ class DataSourceFactory:
         Returns:
             pd.DataFrame: 数据DataFrame
         """
-        # 尝试从所有可用的数据源获取数据
-        for source in self.get_available_sources().values():
-            try:
-                df = source.fetch_data(request)
-                if df is not None and not df.empty:
-                    return df
-            except Exception as e:
-                logger.error(f"从数据源 {source.__class__.__name__} 获取数据失败: {e}")
-                continue
+        # 定义数据源优先级顺序
+        priority_order = ['adata', 'akshare', 'tushare']
+        
+        # 按优先级顺序尝试从数据源获取数据
+        for source_name in priority_order:
+            source = self._sources.get(source_name)
+            if source and source.is_available():
+                try:
+                    logger.info(f"尝试从 {source_name} 数据源获取数据: {request.symbol}")
+                    result = source.fetch_data(request)
+                    # 兼容DataResponse对象
+                    if hasattr(result, 'success') and hasattr(result, 'data'):
+                        if result.success and result.data is not None and not result.data.empty:
+                            logger.info(f"成功从 {source_name} 获取到 {len(result.data)} 条数据")
+                            return result.data
+                        else:
+                            logger.warning(f"{source_name} 数据源返回空数据或失败: {getattr(result, 'error_message', '')}")
+                    else:
+                        # 兼容直接返回DataFrame的老数据源
+                        if result is not None and not result.empty:
+                            logger.info(f"成功从 {source_name} 获取到 {len(result)} 条数据")
+                            return result
+                        else:
+                            logger.warning(f"{source_name} 数据源返回空数据")
+                except Exception as e:
+                    logger.error(f"从数据源 {source_name} 获取数据失败: {e}")
+                    continue
+            else:
+                logger.warning(f"数据源 {source_name} 不可用或未初始化")
                 
         # 如果没有数据源返回数据，返回空DataFrame
+        logger.error(f"所有数据源都无法获取 {request.symbol} 的数据")
         return pd.DataFrame()
                 
     def close_all(self):

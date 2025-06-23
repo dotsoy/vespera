@@ -98,9 +98,7 @@ class AkShareDataSource(BaseDataSource):
         """获取支持的数据类型"""
         return [
             DataType.STOCK_BASIC,
-            DataType.DAILY_QUOTES,
-            DataType.INDEX_DATA,
-            DataType.FINANCIAL_DATA
+            DataType.STOCK_DAILY
         ]
 
     def validate_request(self, request: DataRequest) -> bool:
@@ -109,7 +107,7 @@ class AkShareDataSource(BaseDataSource):
             return False
 
         # 股票代码验证
-        if request.data_type in [DataType.DAILY_QUOTES] and not request.symbol:
+        if request.data_type in [DataType.STOCK_DAILY] and not request.symbol:
             return False
 
         return True
@@ -131,51 +129,36 @@ class AkShareDataSource(BaseDataSource):
         self.last_request_time = time.time()
 
     def _get_available_interfaces(self, data_type: DataType) -> List[str]:
-        """获取指定数据类型的可用接口列表"""
         current_time = time.time()
-
-        if data_type == DataType.DAILY_QUOTES:
+        if data_type == DataType.STOCK_DAILY:
             all_interfaces = [
-                'stock_zh_a_hist',      # 主要接口
-                'stock_zh_a_daily',     # 备用接口1
-                'stock_zh_a_hist_tx'    # 备用接口2（如果可用）
+                'stock_zh_a_hist',
+                'stock_zh_a_daily',
+                'stock_zh_a_hist_tx'
             ]
         elif data_type == DataType.STOCK_BASIC:
             all_interfaces = [
-                'stock_info_a_code_name',  # 主要接口
-                'stock_zh_a_spot_em',      # 备用接口1
-                'stock_zh_a_spot'          # 备用接口2
-            ]
-        elif data_type == DataType.INDEX_DATA:
-            all_interfaces = [
-                'stock_zh_index_daily',    # 主要接口
-                'index_zh_a_hist',         # 备用接口1
-                'stock_zh_index_daily_em'  # 备用接口2
+                'stock_info_a_code_name',
+                'stock_zh_a_spot_em',
+                'stock_zh_a_spot'
             ]
         else:
-            return ['default']
-
+            raise DataSourceError(f"AkShare暂不支持的数据类型: {data_type}", self.name)
         # 过滤掉冷却中或错误过多的接口
         available_interfaces = []
         for interface in all_interfaces:
-            # 检查冷却时间
             if interface in self._interface_cooldown:
                 if current_time < self._interface_cooldown[interface]:
                     logger.debug(f"接口 {interface} 仍在冷却期")
                     continue
                 else:
-                    # 冷却期结束，清除记录
                     del self._interface_cooldown[interface]
-
-            # 检查错误次数
             error_count = self._interface_errors.get(interface, 0)
             if error_count >= self.max_interface_errors:
                 logger.debug(f"接口 {interface} 错误次数过多 ({error_count})")
                 continue
-
             available_interfaces.append(interface)
-
-        return available_interfaces or [all_interfaces[0]]  # 至少返回一个接口
+        return available_interfaces or [all_interfaces[0]]
 
     def _select_best_interface(self, data_type: DataType) -> str:
         """智能选择最佳接口"""
@@ -241,35 +224,23 @@ class AkShareDataSource(BaseDataSource):
                 success=False,
                 error_message="请求参数验证失败"
             )
-
-        if not self._check_rate_limit():
-            raise RateLimitError("请求频率超限", self.name)
-
         try:
-            self._update_request_stats()
-
+            self._check_rate_limit()
             if request.data_type == DataType.STOCK_BASIC:
                 data = self._fetch_stock_basic(request)
-            elif request.data_type == DataType.DAILY_QUOTES:
+            elif request.data_type == DataType.STOCK_DAILY:
                 data = self._fetch_daily_quotes(request)
-            elif request.data_type == DataType.INDEX_DATA:
-                data = self._fetch_index_data(request)
-            elif request.data_type == DataType.FINANCIAL_DATA:
-                data = self._fetch_financial_data(request)
             else:
-                raise DataSourceError(f"不支持的数据类型: {request.data_type}", self.name)
-
+                raise DataSourceError(f"AkShare暂不支持的数据类型: {request.data_type}", self.name)
             return DataResponse(
                 data=data,
                 source=self.name,
                 data_type=request.data_type,
                 timestamp=datetime.now(),
-                success=True,
-                metadata={"records": len(data)}
+                success=True
             )
-
         except Exception as e:
-            logger.error(f"AkShare数据获取失败: {e}")
+            logger.error(f"AkShare获取数据失败: {e}")
             return DataResponse(
                 data=pd.DataFrame(),
                 source=self.name,
@@ -606,7 +577,7 @@ class AkShareDataSource(BaseDataSource):
             'interfaces': {}
         }
 
-        for data_type in [DataType.DAILY_QUOTES, DataType.STOCK_BASIC, DataType.INDEX_DATA]:
+        for data_type in [DataType.STOCK_DAILY, DataType.STOCK_BASIC, DataType.INDEX_DATA]:
             interfaces = self._get_available_interfaces(data_type)
             for interface in interfaces:
                 usage_count = self._interface_usage.get(interface, 0)
